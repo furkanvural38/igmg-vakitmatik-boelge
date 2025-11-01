@@ -107,7 +107,7 @@ export function WeatherCard({
                 "glass-card glass-animate-in",
                 // smoother Farb/Farbwechsel bei Gebetswechsel
                 "transition-all duration-[2000ms] ease-in-out",
-                "mb-16"
+                "mb-20"
             )}
             style={{
                 // wir benutzen unser dynamisches Himmels-Gradient

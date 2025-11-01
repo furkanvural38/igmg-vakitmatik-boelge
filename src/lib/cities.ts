@@ -1,133 +1,155 @@
 // src/lib/cities.ts
-
-export type CityKey =
-    | "hannover"
-    | "braunschweig"
-    | "garbsen"
-    | "laatzen"
-    | "neustadt"
-    | "peine"
-    | "salzgitterBad"
-    | "salzgitter"
-    | "watenstedt"
-    | "hildesheim"
-    | "goslar"
-    | "hameln"
-    | "stadthagen"
-    | "osterode"
-    | "herzberg"
-    | "magdeburg"
-    | "wolfsburg";
-
 export interface CityConfig {
-    mosqueName: string;          // für Header
-    weatherCityName: string;     // für Wetter Kachel API (OpenWeatherMap)
-    prayerApiUrl: string;        // Endpoint mit Gebetszeiten
-    excelFallbackSheet?: string; // optional: Blattname in der Excel-Datei
+    mosqueName: string;
+    weatherCityName: string;
+    prayerApiUrl: string;
+    excelFallbackSheet?: string;
 }
 
-// HINWEIS: Bitte mosqueName anpassen mit realem Namen je Standort
-export const cityConfigs: Record<CityKey, CityConfig> = {
+const API_BASE = "https://igmg-namaz.synology.me:3838/";
+
+// Single Source of Truth: object -> type
+export const cityConfigs = {
     hannover: {
         mosqueName: "HANNOVER ŞUBESİ AYASOFYA CÂMİ-İ",
         weatherCityName: "Hannover",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/hannover",
+        prayerApiUrl: `${API_BASE}hannover`,
         excelFallbackSheet: "hannover",
     },
     braunschweig: {
-        mosqueName: "BRAUNSCHWEIG CAMİ", // <- anpassen
+        mosqueName: "BRAUNSCHWEIG CAMİ",
         weatherCityName: "Braunschweig",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/braunschweig",
+        prayerApiUrl: `${API_BASE}braunschweig`,
         excelFallbackSheet: "braunschweig",
     },
     garbsen: {
-        mosqueName: "GARBSEN ŞUBESİ EYÜP SULTAN CÂMİ-İ", // <- anpassen
+        mosqueName: "GARBSEN ŞUBESİ EYÜP SULTAN CÂMİ-İ",
         weatherCityName: "Garbsen",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/garbsen",
+        prayerApiUrl: `${API_BASE}garbsen`,
         excelFallbackSheet: "garbsen",
     },
     laatzen: {
-        mosqueName: "LAATZEN ŞUBESİ AKSA CÂMİ-İ", // <- anpassen
+        mosqueName: "LAATZEN ŞUBESİ AKSA CÂMİ-İ",
         weatherCityName: "Laatzen",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/laatzen",
+        prayerApiUrl: `${API_BASE}laatzen`,
         excelFallbackSheet: "laatzen",
     },
     neustadt: {
-        mosqueName: "NEUSTADT CAMİ", // <- anpassen
+        mosqueName: "NEUSTADT CAMİ",
         weatherCityName: "Neustadt am Rübenberge",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/neustadt",
+        prayerApiUrl: `${API_BASE}neustadt`,
         excelFallbackSheet: "neustadt",
     },
     peine: {
         mosqueName: "PEINE CAMİ",
         weatherCityName: "Peine",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/peine",
+        prayerApiUrl: `${API_BASE}peine`,
         excelFallbackSheet: "peine",
     },
     salzgitterBad: {
         mosqueName: "SALZGITTER-BAD CAMİ",
         weatherCityName: "Salzgitter",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/salzgitterBad",
+        prayerApiUrl: `${API_BASE}salzgitterBad`,
         excelFallbackSheet: "salzgitterBad",
     },
     salzgitter: {
         mosqueName: "SALZGITTER CAMİ",
         weatherCityName: "Salzgitter",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/salzgitter",
+        prayerApiUrl: `${API_BASE}salzgitter`,
         excelFallbackSheet: "salzgitter",
     },
     watenstedt: {
         mosqueName: "WATENSTEDT CAMİ",
         weatherCityName: "Salzgitter-Watenstedt",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/watenstedt",
+        prayerApiUrl: `${API_BASE}watenstedt`,
         excelFallbackSheet: "watenstedt",
     },
     hildesheim: {
         mosqueName: "HILDESHEIM CAMİ",
         weatherCityName: "Hildesheim",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/hildesheim",
+        prayerApiUrl: `${API_BASE}hildesheim`,
         excelFallbackSheet: "hildesheim",
     },
     goslar: {
         mosqueName: "GOSLAR CAMİ",
         weatherCityName: "Goslar",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/goslar",
+        prayerApiUrl: `${API_BASE}goslar`,
         excelFallbackSheet: "goslar",
     },
     hameln: {
         mosqueName: "HAMELN CAMİ",
         weatherCityName: "Hameln",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/hameln",
+        prayerApiUrl: `${API_BASE}hameln`,
         excelFallbackSheet: "hameln",
     },
     stadthagen: {
         mosqueName: "STADTHAGEN CAMİ",
         weatherCityName: "Stadthagen",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/stadthagen",
+        prayerApiUrl: `${API_BASE}stadthagen`,
         excelFallbackSheet: "stadthagen",
     },
     osterode: {
         mosqueName: "OSTERODE CAMİ",
         weatherCityName: "Osterode am Harz",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/osterode",
+        prayerApiUrl: `${API_BASE}osterode`,
         excelFallbackSheet: "osterode",
     },
     herzberg: {
         mosqueName: "HERZBERG CAMİ",
         weatherCityName: "Herzberg am Harz",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/herzberg",
+        prayerApiUrl: `${API_BASE}herzberg`,
         excelFallbackSheet: "herzberg",
     },
     magdeburg: {
         mosqueName: "MAGDEBURG CAMİ",
         weatherCityName: "Magdeburg",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/magdeburg",
+        prayerApiUrl: `${API_BASE}magdeburg`,
         excelFallbackSheet: "magdeburg",
     },
     wolfsburg: {
         mosqueName: "WOLFSBURG CAMİ",
         weatherCityName: "Wolfsburg",
-        prayerApiUrl: "https://igmg-namaz.synology.me:3838/wolfsburg",
+        prayerApiUrl: `${API_BASE}wolfsburg`,
         excelFallbackSheet: "wolfsburg",
     },
+} as const satisfies Record<string, CityConfig>;
+
+export type CityKey = keyof typeof cityConfigs;
+export const cityList = Object.keys(cityConfigs) as CityKey[];
+
+// URL-freundliche Slugs -> Keys (alles lowercase)
+export const citySlugs: Record<string, CityKey> = {
+    hannover: "hannover",
+    braunschweig: "braunschweig",
+    garbsen: "garbsen",
+    laatzen: "laatzen",
+    neustadt: "neustadt",
+    peine: "peine",
+    "salzgitter-bad": "salzgitterBad",
+    salzgitter: "salzgitter",
+    watenstedt: "watenstedt",
+    hildesheim: "hildesheim",
+    goslar: "goslar",
+    hameln: "hameln",
+    stadthagen: "stadthagen",
+    osterode: "osterode",
+    herzberg: "herzberg",
+    magdeburg: "magdeburg",
+    wolfsburg: "wolfsburg",
 };
+
+// Helper für Router: slug/Key → normalisierter CityKey
+export function resolveCity(input: string | null | undefined): CityKey | undefined {
+    if (!input) return undefined;
+    const slug = input.trim().toLowerCase();
+    // direkter Treffer (nur wenn du ALLE Keys lowercase hältst – außer camelCase!)
+    if (Object.prototype.hasOwnProperty.call(cityConfigs, slug)) {
+        return slug as CityKey;
+    }
+    return citySlugs[slug];
+}
+
+// Type Guard (nützlich in Tests)
+export function isCityKey(x: string): x is CityKey {
+    return Object.prototype.hasOwnProperty.call(cityConfigs, x);
+}

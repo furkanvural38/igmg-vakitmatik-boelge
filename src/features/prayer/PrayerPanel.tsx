@@ -179,7 +179,7 @@ export function PrayerPanel(): JSX.Element {
                     justify-between
                     items-start
                     px-10
-                    mt-24
+                    mt-32
                     gap-10
                 "
             >

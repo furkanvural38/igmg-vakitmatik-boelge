@@ -42,7 +42,7 @@ export default function App() {
                     </header>
 
                     {/* MITTLERER BEREICH */}
-                    <main className="flex-1 flex flex-col items-center justify-center gap-16 text-white">
+                    <main className="flex-1 flex flex-col items-center justify-center gap-16 text-white mt-64">
                         <PrayerPanel />
                     </main>
 
