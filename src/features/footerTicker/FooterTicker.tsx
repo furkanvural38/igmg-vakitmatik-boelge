@@ -14,45 +14,47 @@ const IMG_MAP: Record<string, string> = {
 };
 
 export function FooterTicker() {
-    // datenquelle
+    // Datenquelle
     const { dailyContent } = useCity();
     const items = dailyContent?.items ?? [];
     const itemsLen = items.length;
 
-    // aktueller index
+    // Aktueller Index
     const [index, setIndex] = useState(0);
 
-    // halte index gültig, wenn items neu kommen oder kürzer werden
+    // Index normalisieren, wenn Items sich verändern (kommen neu / Länge schrumpft)
     useEffect(() => {
         if (itemsLen === 0) {
             setIndex(0);
             return;
         }
-        setIndex((prev) => prev % itemsLen);
+        setIndex(prev => prev % itemsLen);
     }, [itemsLen]);
 
-    // auto-advance alle 20 sekunden, entkoppelt von kompletter dailyContent-Referenz
+    // Rotation stabil: alle 20s weiterschalten
     useEffect(() => {
         if (itemsLen === 0) return;
         const id = setInterval(() => {
-            setIndex((prev) => (prev + 1) % itemsLen);
-        }, 20000);
+            setIndex(prev => (prev + 1) % itemsLen);
+        }, 10000);
         return () => clearInterval(id);
     }, [itemsLen]);
 
-    // aktives item wählen (safe)
+    // Aktives Item (safe)
     const activeItem = itemsLen ? items[index % itemsLen] : null;
 
-    // refs für auto-scroll nach unten
+    // Scroll-Refs
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // hook aktivieren (scrollt vertikal von oben nach unten + loop)
+    // Auto-Scroll (langsam nach unten, loop)
     useVerticalScroll(containerRef, contentRef);
 
-    // scroll reset wenn item wechselt
+    // Scroll nach oben resetten bei Itemwechsel
     useEffect(() => {
-        if (containerRef.current) containerRef.current.scrollTop = 0;
+        if (containerRef.current) {
+            containerRef.current.scrollTop = 0;
+        }
     }, [index]);
 
     return (
@@ -68,7 +70,7 @@ export function FooterTicker() {
                 text-white
                 mx-auto
                 rounded-3xl
-                h-[450px]
+                h-[460px]
                 px-4
             "
             style={{
@@ -95,7 +97,7 @@ export function FooterTicker() {
                         style={{
                             marginLeft: "0.5rem",
                             marginRight: "2rem",
-                            height: "22rem", // groß wie gewünscht
+                            height: "22rem",
                             width: "22rem",
                         }}
                     >
@@ -110,7 +112,7 @@ export function FooterTicker() {
                                 }}
                             />
                         ) : (
-                            // fallback falls kein bild-key
+                            // Fallback falls kein imageKey
                             <div
                                 className="text-[#009972] font-bold text-center"
                                 style={{
@@ -123,7 +125,7 @@ export function FooterTicker() {
                         )}
                     </div>
 
-                    {/* RECHTER BLOCK: vertikaler scroll-bereich */}
+                    {/* RECHTER BLOCK: vertikaler Scroll-Bereich */}
                     <div
                         ref={containerRef}
                         className="
@@ -134,8 +136,7 @@ export function FooterTicker() {
                             items-center
                         "
                         style={{
-                            // sichtfenster für den scroll
-                            height: "26rem",
+                            height: "25rem",
                         }}
                     >
                         <div
@@ -147,13 +148,13 @@ export function FooterTicker() {
                                 text-white
                             "
                             style={{
-                                rowGap: "2rem", // abstand zwischen text und quelle
+                                rowGap: "2rem",
                                 maxWidth: "100%",
                             }}
-                            // remount bei jedem index -> sauberer scroll reset + animation reset
+                            // Remount bei jedem Index -> sauberer Scroll-Reset + frischer Content-Flow
                             key={index}
                         >
-                            {/* Haupttext (zentriert anzeigen) */}
+                            {/* Haupttext */}
                             <div
                                 className="text-white text-center mt-16"
                                 style={{
@@ -164,7 +165,7 @@ export function FooterTicker() {
                                 {activeItem.text}
                             </div>
 
-                            {/* Quelle / Hadith-Quelle: immer letztes Element, rechts ausgerichtet */}
+                            {/* Quelle / Hadith-Quelle */}
                             {activeItem.source ? (
                                 <div
                                     className="text-white self-end text-right"

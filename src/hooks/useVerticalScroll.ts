@@ -1,4 +1,3 @@
-// src/hooks/useVerticalScroll.ts
 import { type RefObject, useEffect } from "react";
 
 export const useVerticalScroll = (
@@ -25,33 +24,32 @@ export const useVerticalScroll = (
             }
         };
 
-        const shouldScroll = () => {
-            return content.scrollHeight > scrollContainer.clientHeight * 1.1;
+        const canScroll = () => {
+            // weniger streng: schon scrollen wenn content einfach größer ist als viewport
+            return content.scrollHeight > scrollContainer.clientHeight;
         };
 
         const startCycle = () => {
             clearTimers();
 
-            // Reset ganz nach oben
+            // Reset nach oben
             scrollAmount = 0;
             scrollContainer.scrollTop = 0;
 
-            // 2s oben zeigen
+            // kurze Pause oben (1s statt 2s)
             pauseTimeout = window.setTimeout(() => {
                 const maxScroll =
                     content.scrollHeight - scrollContainer.clientHeight;
 
                 scrollInterval = window.setInterval(() => {
-                    // erst setzen
                     scrollContainer.scrollTop = scrollAmount;
-                    // dann erhöhen
                     scrollAmount += 1;
 
                     // unten angekommen?
                     if (scrollAmount >= maxScroll) {
                         clearTimers();
 
-                        // 1s unten stehen bleiben, dann Loop neu
+                        // kurze Pause unten (1s), dann Loop
                         pauseTimeout = window.setTimeout(() => {
                             startCycle();
                         }, 1000);
@@ -60,7 +58,7 @@ export const useVerticalScroll = (
             }, 1000);
         };
 
-        if (shouldScroll()) {
+        if (canScroll()) {
             startCycle();
         }
 
@@ -68,7 +66,7 @@ export const useVerticalScroll = (
             clearTimers();
             scrollAmount = 0;
             scrollContainer.scrollTop = 0;
-            if (shouldScroll()) {
+            if (canScroll()) {
                 startCycle();
             }
         });
