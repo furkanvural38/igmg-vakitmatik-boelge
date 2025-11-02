@@ -137,7 +137,7 @@ export function FooterTicker() {
                         "
                         style={{
                             // sichtfenster für den scroll
-                            height: "24rem",
+                            height: "25rem",
                         }}
                     >
                         <div
