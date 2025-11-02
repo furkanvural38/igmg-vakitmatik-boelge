@@ -1,5 +1,5 @@
 // src/features/footerTicker/FooterTicker.tsx
-import { useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useCity } from "../../app/CityProvider";
 import { useVerticalScroll } from "../../hooks/useVerticalScroll";
 
@@ -7,55 +7,48 @@ import AllahImg from "../../assets/ressources/ALLAH-image.png";
 import MuhammadImg from "../../assets/ressources/Muhammad-image.png";
 import DuaImg from "../../assets/ressources/dua-image.png";
 
-const IMG_MAP: Record<string, string> = {
-    allah: AllahImg,
-    muhammad: MuhammadImg,
-    dua: DuaImg,
-};
+function getImageForKey(key: string | undefined) {
+    switch (key) {
+        case "allah":
+            return AllahImg;
+        case "muhammad":
+            return MuhammadImg;
+        case "dua":
+            return DuaImg;
+        default:
+            return null;
+    }
+}
 
 export function FooterTicker() {
-    // Datenquelle
     const { dailyContent } = useCity();
-    const items = dailyContent?.items ?? [];
-    const itemsLen = items.length;
-
-    // Aktueller Index
     const [index, setIndex] = useState(0);
 
-    // Index normalisieren, wenn Items sich verändern (kommen neu / Länge schrumpft)
+    // alle 20 sekunden zum nächsten item
     useEffect(() => {
-        if (itemsLen === 0) {
-            setIndex(0);
-            return;
-        }
-        setIndex(prev => prev % itemsLen);
-    }, [itemsLen]);
-
-    // Rotation stabil: alle 20s weiterschalten
-    useEffect(() => {
-        if (itemsLen === 0) return;
         const id = setInterval(() => {
-            setIndex(prev => (prev + 1) % itemsLen);
-        }, 10000);
+            setIndex((prev) => {
+                if (!dailyContent?.items || dailyContent.items.length === 0) return 0;
+                return (prev + 1) % dailyContent.items.length;
+            });
+        }, 20000);
+
         return () => clearInterval(id);
-    }, [itemsLen]);
+    }, [dailyContent]);
 
-    // Aktives Item (safe)
-    const activeItem = itemsLen ? items[index % itemsLen] : null;
+    // aktives item auswählen
+    const activeItem = useMemo(() => {
+        if (!dailyContent?.items || dailyContent.items.length === 0) return null;
+        const safeIndex = index % dailyContent.items.length;
+        return dailyContent.items[safeIndex];
+    }, [dailyContent, index]);
 
-    // Scroll-Refs
+    // refs für auto-scroll nach unten
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // Auto-Scroll (langsam nach unten, loop)
+    // hook aktivieren (scrollt vertikal von oben nach unten + loop)
     useVerticalScroll(containerRef, contentRef);
-
-    // Scroll nach oben resetten bei Itemwechsel
-    useEffect(() => {
-        if (containerRef.current) {
-            containerRef.current.scrollTop = 0;
-        }
-    }, [index]);
 
     return (
         <footer
@@ -70,12 +63,13 @@ export function FooterTicker() {
                 text-white
                 mx-auto
                 rounded-3xl
-                h-[460px]
-                px-4
+                h-[450px]
+                px-8
             "
             style={{
                 boxShadow:
                     "0 30px 80px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.8), 0 0 60px rgba(0,150,255,0.3)",
+
             }}
         >
             {!activeItem ? (
@@ -97,35 +91,41 @@ export function FooterTicker() {
                         style={{
                             marginLeft: "0.5rem",
                             marginRight: "2rem",
-                            height: "22rem",
+                            height: "22rem", // groß wie gewünscht
                             width: "22rem",
                         }}
                     >
-                        {IMG_MAP[activeItem.imageKey ?? ""] ? (
-                            <img
-                                src={IMG_MAP[activeItem.imageKey ?? ""]}
-                                alt={activeItem.title}
-                                style={{
-                                    height: "100%",
-                                    width: "100%",
-                                    objectFit: "contain",
-                                }}
-                            />
-                        ) : (
-                            // Fallback falls kein imageKey
-                            <div
-                                className="text-[#009972] font-bold text-center"
-                                style={{
-                                    fontSize: "4rem",
-                                    lineHeight: 1.1,
-                                }}
-                            >
-                                {activeItem.title}
-                            </div>
-                        )}
+                        {(() => {
+                            const img = getImageForKey(activeItem.imageKey);
+                            if (img) {
+                                return (
+                                    <img
+                                        src={img}
+                                        alt={activeItem.title}
+                                        style={{
+                                            height: "100%",
+                                            width: "100%",
+                                            objectFit: "contain",
+                                        }}
+                                    />
+                                );
+                            }
+                            // fallback falls kein bild-key
+                            return (
+                                <div
+                                    className="text-[#009972] font-bold text-center"
+                                    style={{
+                                        fontSize: "4rem",
+                                        lineHeight: 1.1,
+                                    }}
+                                >
+                                    {activeItem.title}
+                                </div>
+                            );
+                        })()}
                     </div>
 
-                    {/* RECHTER BLOCK: vertikaler Scroll-Bereich */}
+                    {/* RECHTER BLOCK: vertikaler scroll-bereich */}
                     <div
                         ref={containerRef}
                         className="
@@ -136,7 +136,8 @@ export function FooterTicker() {
                             items-center
                         "
                         style={{
-                            height: "25rem",
+                            // sichtfenster für den scroll
+                            height: "24rem",
                         }}
                     >
                         <div
@@ -148,13 +149,13 @@ export function FooterTicker() {
                                 text-white
                             "
                             style={{
-                                rowGap: "2rem",
+                                rowGap: "2rem", // abstand zwischen text und quelle
+                                // KEIN justify-center hier, damit contentRef richtige natürliche Höhe bekommt
+                                // Breite begrenzen, damit Text nicht von Rand zu Rand klatscht
                                 maxWidth: "100%",
                             }}
-                            // Remount bei jedem Index -> sauberer Scroll-Reset + frischer Content-Flow
-                            key={index}
                         >
-                            {/* Haupttext */}
+                            {/* Haupttext (zentriert anzeigen) */}
                             <div
                                 className="text-white text-center mt-16"
                                 style={{
@@ -165,7 +166,7 @@ export function FooterTicker() {
                                 {activeItem.text}
                             </div>
 
-                            {/* Quelle / Hadith-Quelle */}
+                            {/* Quelle / Hadith-Quelle: immer letztes Element, rechts ausgerichtet */}
                             {activeItem.source ? (
                                 <div
                                     className="text-white self-end text-right"
