@@ -12,3 +12,4 @@ ReactDOM.createRoot(rootEl).render(
         <RouterProvider router={router} />
     </React.StrictMode>
 );
+
