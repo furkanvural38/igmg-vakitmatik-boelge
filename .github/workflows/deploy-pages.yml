@@ -35,10 +35,6 @@ jobs:
       - name: Build web (Vite --mode pages)
         run: npm run build:web
 
-      # Nur nötig für BrowserRouter; schadet nicht, daher immer aktiv
-      - name: SPA fallback (copy index -> 404)
-        run: cp dist/index.html dist/404.html || true
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
