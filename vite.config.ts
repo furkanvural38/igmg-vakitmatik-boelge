@@ -5,18 +5,20 @@ import legacy from "@vitejs/plugin-legacy";
 
 export default defineConfig(({ mode }) => {
     const repoBase = "/igmg-vakitmatik-boelge/"; // <- exakt dein Repo-Name
+    const isPages = mode === "pages";
 
     return {
-        base: mode === "pages" ? repoBase : "/",
+        base: isPages ? repoBase : "/",
         plugins: [
             react(),
             legacy({
                 targets: ["defaults", "Chrome >= 49", "Safari >= 10", "Android >= 5"],
+                modernPolyfills: true,
                 additionalLegacyPolyfills: ["regenerator-runtime/runtime"],
             }),
         ],
         build: {
-            target: "es2015",
+            target: ["es2018", "chrome64"],
             outDir: "dist",
             emptyOutDir: true,
         },
