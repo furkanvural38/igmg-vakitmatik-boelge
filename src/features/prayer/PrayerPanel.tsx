@@ -221,7 +221,7 @@ export function PrayerPanel(): JSX.Element {
                                 {/* Countdown + Fortschritt */}
                                 {isActive && (
                                     <div className="absolute -top-44 left-1/2 -translate-x-1/2 w-full px-4 text-white z-[5]">
-                                        <div className="text-center text-white mb-4 text-8xl">
+                                        <div className="text-center text-white mb-4 text-7xl">
                                             {diffLabelShort}
                                         </div>
 
