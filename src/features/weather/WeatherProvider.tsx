@@ -67,7 +67,6 @@ export function WeatherProvider({
     // Initial + City-Wechsel (SWR: zeige evtl. alten Wert, revalidiere)
     useEffect(() => {
         if (!cityName) return;
-        const fresh = lastUpdated && Date.now() - lastUpdated < ttlMs;
         // zeige vorhandene Werte, revalidiere immer „leise“
         void doFetch();
         return () => abortRef.current?.abort();
