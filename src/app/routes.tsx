@@ -2,11 +2,14 @@
 import { createHashRouter, redirect } from "react-router-dom";
 import { CityProvider } from "./CityProvider";
 import App from "./App";
+import { WeatherProvider } from "../features/weather/WeatherProvider";
 
 function CityAppWrapper() {
     return (
         <CityProvider>
-            <App />
+            <WeatherProvider>
+                <App />
+            </WeatherProvider>
         </CityProvider>
     );
 }

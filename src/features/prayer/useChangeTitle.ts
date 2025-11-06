@@ -1,50 +1,32 @@
-import { useState, useEffect } from "react";
-import { useCity } from "../../app/CityProvider";
+// src/features/prayer/useChangeTitle.ts
+import { useMemo } from "react";
+import { useClock } from "../../hooks/useClock";
 
 type PrayerKey = "fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha";
 
-interface PrayerTitle {
-    arabic: string;
-    latin: string;
-}
+const prayerTitles = {
+    fajr:     { arabic: "الصلاة الفجر",   latin: "Fajr"     },
+    sunrise:  { arabic: "الشروق",         latin: "Shuruq"   },
+    dhuhr:    { arabic: "الصلاة الظهر",   latin: "Dhuhr"    },
+    asr:      { arabic: "الصلاة العصر",   latin: "Asr"      },
+    maghrib:  { arabic: "الصلاة المغرب",  latin: "Maghrib"  },
+    isha:     { arabic: "الصلاة العشاء",  latin: "Isha'a"   },
+} as const;
 
-const prayerTitles: Record<PrayerKey, PrayerTitle> = {
-    fajr: { arabic: "الصلاة الفجر", latin: "Fajr" },
-    sunrise: { arabic: "الشروق", latin: "Shuruq" },
-    dhuhr: { arabic: "الصلاة الظهر", latin: "Dhuhr" },
-    asr: { arabic: "الصلاة العصر", latin: "Asr" },
-    maghrib: { arabic: "الصلاة المغرب", latin: "Maghrib" },
-    isha: { arabic: "الصلاة العشاء", latin: "Isha\'a" },
-};
+export function useChangeTitle(): Record<PrayerKey, string> {
+    const now = useClock(1000);
+    // wechsle alle 3 Sekunden; keine setState-Toggles nötig
+    const isArabic = Math.floor(now.getSeconds() / 3) % 2 === 0;
 
-export function useChangeTitle() {
-    const { clock } = useCity(); // globale Uhr
-    const [isArabic, setIsArabic] = useState(true);
-    const [currentTitles, setCurrentTitles] = useState<Record<PrayerKey, string>>(
-        () =>
-            Object.fromEntries(
-                Object.entries(prayerTitles).map(([k, v]) => [k, v.arabic])
-            ) as Record<PrayerKey, string>
-    );
-
-    useEffect(() => {
-        const seconds = clock.getSeconds();
-        // alle 3 Sekunden toggeln
-        if (seconds % 3 === 0) {
-            setIsArabic((prev) => !prev);
-        }
-    }, [clock]);
-
-    useEffect(() => {
-        setCurrentTitles(
-            Object.fromEntries(
-                Object.entries(prayerTitles).map(([k, v]) => [
-                    k,
-                    isArabic ? v.arabic : v.latin,
-                ])
-            ) as Record<PrayerKey, string>
-        );
+    return useMemo(() => {
+        const out: Record<PrayerKey, string> = {
+            fajr:     isArabic ? prayerTitles.fajr.arabic     : prayerTitles.fajr.latin,
+            sunrise:  isArabic ? prayerTitles.sunrise.arabic  : prayerTitles.sunrise.latin,
+            dhuhr:    isArabic ? prayerTitles.dhuhr.arabic    : prayerTitles.dhuhr.latin,
+            asr:      isArabic ? prayerTitles.asr.arabic      : prayerTitles.asr.latin,
+            maghrib:  isArabic ? prayerTitles.maghrib.arabic  : prayerTitles.maghrib.latin,
+            isha:     isArabic ? prayerTitles.isha.arabic     : prayerTitles.isha.latin,
+        };
+        return out;
     }, [isArabic]);
-
-    return currentTitles;
 }
