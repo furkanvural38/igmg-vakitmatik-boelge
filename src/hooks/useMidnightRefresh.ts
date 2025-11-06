@@ -1,23 +1,31 @@
-// src/hooks/useMidnightRefresh.ts
-import { useEffect, useRef } from "react";
-import { useClock } from "./useClock";
+import { useEffect } from "react";
 
 /**
- * Führt `callback` aus, wenn sich das Datum (Tag) ändert.
- * Nutzt den globalen useClock-Hook für präzises Ticken.
+ * Führt `callback` exakt bei Tageswechsel aus (lokale Zeit).
+ * Kein Sekundentick. Plant sich nach Ausführung neu.
  */
 export function useMidnightRefresh(callback: () => void) {
-    const clock = useClock(1000); // jede Sekunde
-    const prevDayRef = useRef<number>(clock.getDate());
-
     useEffect(() => {
-        const currentDay = clock.getDate();
+        let timeoutId: number | null = null;
 
-        // Prüfen, ob sich der Tag geändert hat
-        if (currentDay !== prevDayRef.current) {
-            prevDayRef.current = currentDay;
-            console.log("🌙 Tageswechsel erkannt → Daten neu laden");
-            callback();
-        }
-    }, [clock, callback]);
+        const scheduleNextMidnight = () => {
+            const now = new Date();
+            const next = new Date(now);
+            // nächste lokale Mitternacht
+            next.setHours(24, 0, 0, 0);
+
+            const delay = Math.max(0, next.getTime() - now.getTime());
+            timeoutId = window.setTimeout(() => {
+                callback();
+                scheduleNextMidnight(); // nach dem Refresh erneut planen
+            }, delay);
+        };
+
+        scheduleNextMidnight();
+        return () => {
+            if (timeoutId != null) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, [callback]);
 }

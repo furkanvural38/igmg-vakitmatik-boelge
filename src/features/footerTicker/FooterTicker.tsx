@@ -1,7 +1,6 @@
 // src/features/footerTicker/FooterTicker.tsx
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useCity } from "../../app/CityProvider";
-import { useVerticalScroll } from "../../hooks/useVerticalScroll";
 
 import AllahImg from "../../assets/ressources/ALLAH-image.png";
 import MuhammadImg from "../../assets/ressources/Muhammad-image.png";
@@ -9,14 +8,10 @@ import DuaImg from "../../assets/ressources/dua-image.png";
 
 function getImageForKey(key: string | undefined) {
     switch (key) {
-        case "allah":
-            return AllahImg;
-        case "muhammad":
-            return MuhammadImg;
-        case "dua":
-            return DuaImg;
-        default:
-            return null;
+        case "allah": return AllahImg;
+        case "muhammad": return MuhammadImg;
+        case "dua": return DuaImg;
+        default: return null;
     }
 }
 
@@ -24,62 +19,84 @@ export function FooterTicker() {
     const { dailyContent } = useCity();
     const [index, setIndex] = useState(0);
 
-    // alle 20 sekunden zum nächsten item
+    // alle 20s zum nächsten Item
     useEffect(() => {
         const id = setInterval(() => {
-            setIndex((prev) => {
-                if (!dailyContent?.items || dailyContent.items.length === 0) return 0;
+            setIndex(prev => {
+                if (!dailyContent?.items?.length) return 0;
                 return (prev + 1) % dailyContent.items.length;
             });
         }, 20000);
-
         return () => clearInterval(id);
     }, [dailyContent]);
 
-    // aktives item auswählen
     const activeItem = useMemo(() => {
-        if (!dailyContent?.items || dailyContent.items.length === 0) return null;
-        const safeIndex = index % dailyContent.items.length;
-        return dailyContent.items[safeIndex];
+        if (!dailyContent?.items?.length) return null;
+        const safe = index % dailyContent.items.length;
+        return dailyContent.items[safe];
     }, [dailyContent, index]);
 
-    // refs für auto-scroll nach unten
-    const containerRef = useRef<HTMLDivElement>(null);
+    // CSS-Marquee: wir messen Distanz und setzen CSS-Variablen am Content
+    const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // hook aktivieren (scrollt vertikal von oben nach unten + loop)
-    useVerticalScroll(containerRef, contentRef);
+    useEffect(() => {
+        const viewport = viewportRef.current;
+        const content = contentRef.current;
+        if (!viewport || !content) return;
+
+        const SPEED_PX_PER_SEC = 40; // Pi-freundlich
+        const TOP_BOTTOM_PAUSE_FRAC = 0.1; // entspricht 10% Hold in Keyframes
+
+        const updateVars = () => {
+            const distance = Math.max(0, content.scrollHeight - viewport.clientHeight);
+            // Dauer = Strecke / Geschwindigkeit; min 8s für ruhige Lesbarkeit
+            const baseDuration = distance / SPEED_PX_PER_SEC;
+            const durationSec = Math.max(8, baseDuration / (1 - 2 * TOP_BOTTOM_PAUSE_FRAC));
+            content.style.setProperty("--scroll-distance", `${distance}px`);
+            content.style.setProperty("--marquee-duration", `${durationSec}s`);
+            // Force restart bei Item-Wechsel: toggle animation-name
+            content.style.animationName = "none";
+            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+            content.offsetHeight; // reflow to re-apply animation
+            content.style.animationName = "vertical-marquee";
+        };
+
+        const ro = new ResizeObserver(updateVars);
+        ro.observe(viewport);
+        ro.observe(content);
+
+        // initial & bei aktivem Item
+        updateVars();
+
+        return () => ro.disconnect();
+    }, [activeItem]);
 
     return (
         <footer
             className="
-                glass-card
-                glass-card-content
-                glass-animate-in
-                w-full
-                flex
-                items-center
-                justify-start
-                text-white
-                mx-auto
-                rounded-3xl
-                h-[450px]
-                px-8
-            "
+        glass-card
+        glass-card-content
+        glass-animate-in
+        w-full
+        flex
+        items-center
+        justify-start
+        text-white
+        mx-auto
+        rounded-3xl
+        h-[450px]
+        px-8
+      "
             style={{
                 boxShadow:
                     "0 30px 80px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.8), 0 0 60px rgba(0,150,255,0.3)",
-
             }}
         >
             {!activeItem ? (
                 <div
                     className="text-white font-light flex items-center"
-                    style={{
-                        fontSize: "4rem",
-                        lineHeight: 1.2,
-                        paddingLeft: "2rem",
-                    }}
+                    style={{ fontSize: "4rem", lineHeight: 1.2, paddingLeft: "2rem" }}
                 >
                     Lade islamische Inhalte…
                 </div>
@@ -88,12 +105,7 @@ export function FooterTicker() {
                     {/* LINKER BLOCK: großes Bild */}
                     <div
                         className="flex-shrink-0 flex items-center justify-center"
-                        style={{
-                            marginLeft: "0.5rem",
-                            marginRight: "2rem",
-                            height: "22rem", // groß wie gewünscht
-                            width: "22rem",
-                        }}
+                        style={{ marginLeft: "0.5rem", marginRight: "2rem", height: "22rem", width: "22rem" }}
                     >
                         {(() => {
                             const img = getImageForKey(activeItem.imageKey);
@@ -102,79 +114,39 @@ export function FooterTicker() {
                                     <img
                                         src={img}
                                         alt={activeItem.title}
-                                        style={{
-                                            height: "100%",
-                                            width: "100%",
-                                            objectFit: "contain",
-                                        }}
+                                        style={{ height: "100%", width: "100%", objectFit: "contain" }}
                                     />
                                 );
                             }
-                            // fallback falls kein bild-key
                             return (
-                                <div
-                                    className="text-[#009972] font-bold text-center"
-                                    style={{
-                                        fontSize: "4rem",
-                                        lineHeight: 1.1,
-                                    }}
-                                >
+                                <div className="text-[#009972] font-bold text-center" style={{ fontSize: "4rem", lineHeight: 1.1 }}>
                                     {activeItem.title}
                                 </div>
                             );
                         })()}
                     </div>
 
-                    {/* RECHTER BLOCK: vertikaler scroll-bereich */}
+                    {/* RECHTER BLOCK: reines CSS-Marquee */}
                     <div
-                        ref={containerRef}
-                        className="
-                            flex-grow
-                            overflow-hidden
-                            flex
-                            justify-center
-                            items-center
-                        "
-                        style={{
-                            // sichtfenster für den scroll
-                            height: "25rem",
-                        }}
+                        ref={viewportRef}
+                        className="marquee-viewport flex-grow flex justify-center items-center overflow-hidden"
+                        style={{ height: "25rem" }}
                     >
                         <div
+                            key={activeItem.title} // bei Item-Wechsel Animation neu starten
                             ref={contentRef}
-                            className="
-                                flex
-                                flex-col
-                                w-full
-                                text-white
-                            "
+                            className="marquee-content flex flex-col w-full text-white"
                             style={{
-                                rowGap: "2rem", // abstand zwischen text und quelle
-                                // KEIN justify-center hier, damit contentRef richtige natürliche Höhe bekommt
-                                // Breite begrenzen, damit Text nicht von Rand zu Rand klatscht
+                                rowGap: "2rem",
                                 maxWidth: "100%",
                             }}
                         >
-                            {/* Haupttext (zentriert anzeigen) */}
-                            <div
-                                className="text-white text-center mt-16"
-                                style={{
-                                    fontSize: "6rem",
-                                    lineHeight: 1.2,
-                                }}
-                            >
+                            <div className="text-white text-center mt-16" style={{ fontSize: "6rem", lineHeight: 1.2 }}>
                                 {activeItem.text}
                             </div>
 
-                            {/* Quelle / Hadith-Quelle: immer letztes Element, rechts ausgerichtet */}
                             {activeItem.source ? (
-                                <div
-                                    className="text-white self-end text-right"
-                                    style={{
-                                        fontSize: "5rem",
-                                        lineHeight: 1.2,
-                                    }}
-                                >
+                                <div className="text-white self-end text-right" style={{ fontSize: "5rem", lineHeight: 1.2 }}>
                                     {activeItem.source}
                                 </div>
                             ) : null}

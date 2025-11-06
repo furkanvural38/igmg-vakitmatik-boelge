@@ -1,10 +1,22 @@
-// src/app/CityProvider.tsx
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useState,
+    useMemo,
+    useCallback,
+} from "react";
 import { useParams } from "react-router-dom";
-import { cityConfigs, type CityKey, type CityConfig } from "../lib/cities";
-import { fetchPrayerTimesWithFallback, fetchWeather, type PrayerTimes, type WeatherData } from "../lib/api";
+import {
+    cityConfigs,
+    type CityKey,
+    type CityConfig,
+} from "../lib/cities";
+import {
+    fetchPrayerTimesWithFallback,
+    type PrayerTimes,
+} from "../lib/api";
 import { fetchDailyIslamContent } from "../features/footerTicker/apiDailyContent";
-import { useClock } from "../hooks/useClock";
 import { useMidnightRefresh } from "../hooks/useMidnightRefresh";
 
 interface CityContextValue {
@@ -13,9 +25,7 @@ interface CityContextValue {
     isValidCity: boolean;
     loading: boolean;
     error: string | null;
-    clock: Date;
     prayerTimes: PrayerTimes | null;
-    weather: WeatherData | null;
     dailyContent: any | null;
     hijriDateLong: string | null;
     gregorianDateShort: string | null;
@@ -28,12 +38,13 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
     const config = useMemo(() => cityConfigs[cityKey as CityKey], [cityKey]);
     const isValidCity = !!config;
 
-    const clock = useClock(1000);
-    const [state, setState] = useState<Omit<CityContextValue, "cityKey" | "config" | "isValidCity" | "clock">>({
+    const [state, setState] = useState<Omit<
+        CityContextValue,
+        "cityKey" | "config" | "isValidCity"
+    >>({
         loading: true,
         error: null,
         prayerTimes: null,
-        weather: null,
         dailyContent: null,
         hijriDateLong: null,
         gregorianDateShort: null,
@@ -41,53 +52,73 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
 
     const loadData = useCallback(async () => {
         if (!config) {
-            setState(s => ({ ...s, error: "Ungültige Stadt", loading: false }));
+            setState((s) => ({ ...s, error: "Ungültige Stadt", loading: false }));
             return;
         }
 
-        setState(s => ({ ...s, loading: true, error: null }));
+        setState((s) => ({ ...s, loading: true, error: null }));
 
         try {
-            const [prayerResp, weatherResp, daily] = await Promise.allSettled([
-                fetchPrayerTimesWithFallback(config.prayerApiUrl, config.excelFallbackSheet),
-                fetchWeather(config.weatherCityName),
+            const [prayerResp, daily] = await Promise.allSettled([
+                fetchPrayerTimesWithFallback(
+                    config.prayerApiUrl,
+                    config.excelFallbackSheet
+                ),
                 fetchDailyIslamContent(),
             ]);
 
-            const prayerData = prayerResp.status === "fulfilled" ? prayerResp.value : null;
-            const weatherData = weatherResp.status === "fulfilled" ? weatherResp.value : null;
+            const prayerData =
+                prayerResp.status === "fulfilled" ? prayerResp.value : null;
             const dailyData = daily.status === "fulfilled" ? daily.value : null;
-
-            const hijriLong = prayerData?.hijriDateLong ?? null;
-            const gregShort = prayerData?.gregorianDateShort ?? null;
 
             setState({
                 loading: false,
                 error: null,
                 prayerTimes: prayerData,
-                weather: weatherData,
                 dailyContent: dailyData,
-                hijriDateLong: hijriLong,
-                gregorianDateShort: gregShort,
+                hijriDateLong: prayerData?.hijriDateLong ?? null,
+                gregorianDateShort: prayerData?.gregorianDateShort ?? null,
             });
         } catch (err: any) {
-            setState(s => ({ ...s, loading: false, error: err?.message ?? "Fehler beim Laden" }));
+            setState((s) => ({
+                ...s,
+                loading: false,
+                error: err?.message ?? "Fehler beim Laden",
+            }));
         }
     }, [config]);
 
+    // Initial + bei City-Wechsel
     useEffect(() => {
         loadData();
     }, [loadData]);
 
-    useMidnightRefresh(() => loadData());
+    // Täglich um Mitternacht neu laden – ohne Sekundentick
+    useMidnightRefresh(loadData);
 
-    const value: CityContextValue = {
+    const value = useMemo<CityContextValue>(() => {
+        return {
+            cityKey,
+            config,
+            isValidCity,
+            loading: state.loading,
+            error: state.error,
+            prayerTimes: state.prayerTimes,
+            dailyContent: state.dailyContent,
+            hijriDateLong: state.hijriDateLong,
+            gregorianDateShort: state.gregorianDateShort,
+        };
+    }, [
         cityKey,
         config,
         isValidCity,
-        clock,
-        ...state,
-    };
+        state.loading,
+        state.error,
+        state.prayerTimes,
+        state.dailyContent,
+        state.hijriDateLong,
+        state.gregorianDateShort,
+    ]);
 
     return <CityContext.Provider value={value}>{children}</CityContext.Provider>;
 }
