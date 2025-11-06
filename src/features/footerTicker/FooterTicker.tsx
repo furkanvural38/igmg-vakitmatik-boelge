@@ -40,37 +40,67 @@ export function FooterTicker() {
     const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
+// im FooterTicker, ersetze den useEffect-Block
     useEffect(() => {
         const viewport = viewportRef.current;
         const content = contentRef.current;
         if (!viewport || !content) return;
 
-        const SPEED_PX_PER_SEC = 40; // Pi-freundlich
-        const TOP_BOTTOM_PAUSE_FRAC = 0.1; // entspricht 10% Hold in Keyframes
+        const SPEED_PX_PER_SEC = 40;
+        const TOP_BOTTOM_PAUSE_FRAC = 0.1;
+        const MIN_DURATION_SEC = 8;
+        const DIST_THRESHOLD_PX = 12; // unterhalb: nicht scrollen
 
-        const updateVars = () => {
-            const distance = Math.max(0, content.scrollHeight - viewport.clientHeight);
-            // Dauer = Strecke / Geschwindigkeit; min 8s für ruhige Lesbarkeit
-            const baseDuration = distance / SPEED_PX_PER_SEC;
-            const durationSec = Math.max(8, baseDuration / (1 - 2 * TOP_BOTTOM_PAUSE_FRAC));
+        const enableAnimation = (distance: number) => {
+            // Dauer berechnen – inkl. Pausenanteil
+            const baseDuration = distance / SPEED_PX_PER_SEC; // reine Fahrtzeit
+            const durationSec = Math.max(
+                MIN_DURATION_SEC,
+                baseDuration / (1 - 2 * TOP_BOTTOM_PAUSE_FRAC)
+            );
+
             content.style.setProperty("--scroll-distance", `${distance}px`);
             content.style.setProperty("--marquee-duration", `${durationSec}s`);
-            // Force restart bei Item-Wechsel: toggle animation-name
-            content.style.animationName = "none";
+
+            // Animation sauber neu starten
+            content.classList.remove("marquee-running");
+            // reflow
             // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-            content.offsetHeight; // reflow to re-apply animation
-            content.style.animationName = "vertical-marquee";
+            content.offsetHeight;
+            content.classList.add("marquee-running");
         };
 
-        const ro = new ResizeObserver(updateVars);
+        const disableAnimation = () => {
+            content.classList.remove("marquee-running");
+            content.style.removeProperty("--scroll-distance");
+            content.style.removeProperty("--marquee-duration");
+            content.style.animationName = "none";
+            content.style.transform = "translate3d(0,0,0)";
+        };
+
+        const measureAndApply = () => {
+            // getBoundingClientRect ist robuster als scrollHeight/clientHeight
+            const viewportH = viewport.getBoundingClientRect().height;
+            const contentH = content.getBoundingClientRect().height;
+            const distance = Math.max(0, Math.round(contentH - viewportH));
+
+            if (distance <= DIST_THRESHOLD_PX) {
+                disableAnimation();
+            } else {
+                enableAnimation(distance);
+            }
+        };
+
+        const ro = new ResizeObserver(measureAndApply);
         ro.observe(viewport);
         ro.observe(content);
 
-        // initial & bei aktivem Item
-        updateVars();
+        // initial und bei Item-Wechsel
+        measureAndApply();
 
         return () => ro.disconnect();
     }, [activeItem]);
+
 
     return (
         <footer
