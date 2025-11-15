@@ -218,7 +218,7 @@ body {
     border-radius: 1.5rem;
 
     /* statt backdrop-filter nutzen wir eine leichte Füllfarbe */
-    background-color: rgba(0, 0, 0, 0.35);
+    backdrop-filter: saturate(160%);
 
     /* feiner Rand bleibt */
     border: 1px solid rgba(255,255,255,0.18);
