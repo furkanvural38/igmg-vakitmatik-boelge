@@ -3,7 +3,7 @@ name: Deploy Vite React (Web) to GitHub Pages
 on:
   push:
     branches:
-      - igmg-testing
+      - main
   workflow_dispatch:
 
 permissions:
