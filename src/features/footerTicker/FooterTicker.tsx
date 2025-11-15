@@ -171,7 +171,7 @@ export function FooterTicker() {
                                 maxWidth: "100%",
                             }}
                         >
-                            <div className="text-white text-center mt-16" style={{ fontSize: "6rem", lineHeight: 1.2 }}>
+                            <div className="text-white text-center mt-4" style={{ fontSize: "6rem", lineHeight: 1.2 }}>
                                 {activeItem.text}
                             </div>
 
