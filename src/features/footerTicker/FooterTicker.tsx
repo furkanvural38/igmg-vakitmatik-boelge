@@ -49,7 +49,7 @@ export function FooterTicker() {
         const SPEED_PX_PER_SEC = 40;
         const TOP_BOTTOM_PAUSE_FRAC = 0.1;
         const MIN_DURATION_SEC = 8;
-        const DIST_THRESHOLD_PX = 12; // unterhalb: nicht scrollen
+        const DIST_THRESHOLD_PX = 30; // unterhalb: nicht scrollen
 
         const enableAnimation = (distance: number) => {
             // Dauer berechnen – inkl. Pausenanteil
