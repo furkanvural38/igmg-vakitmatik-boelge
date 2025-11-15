@@ -42,18 +42,21 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    /* background-attachment: fixed;  -> entfernt, teuer auf schwacher Hardware */
+
+    /* WICHTIG: fixed -> scroll für Performance */
+    background-attachment: scroll;
+
     position: relative;
 }
 
 /* === Animations (Ticker / Twinkle / Glass-Pop) ======================= */
-/* Keyframes bleiben, aber Klassen nutzen keine Animationen mehr. */
 
 @keyframes ticker {
     0%   { transform: translateX(0%); }
     100% { transform: translateX(-50%); }
 }
 
+/* twinkle bleibt wie gehabt (wird ja eh kaum genutzt) */
 @keyframes twinkle {
     0%, 100% {
         opacity: 0.7;
@@ -61,25 +64,28 @@ body {
     }
     50% {
         opacity: 1;
-        transform: scale(1.1);
+        transform: scale(1.3);
     }
 }
 
-/* "spawn in" Effekt deaktiviert (kein Blur, keine Animation) */
+/* glass-pop ohne Blur-Filter (nur Opacity + leichte Bewegung/Scale) */
 @keyframes glass-pop {
     0% {
         opacity: 0;
-        transform: translate3d(0, 8px, 0);
+        transform: translate3d(0, 20px, 0) scale(0.96);
+    }
+    60% {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1.02);
     }
     100% {
         opacity: 1;
-        transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0) scale(1);
     }
 }
 
-/* keine Animation mehr, nur als Hook, falls nötig */
 .glass-animate-in {
-    opacity: 1;
+    animation: glass-pop 0.6s cubic-bezier(.16,1,.3,1) both;
 }
 
 /* === Glass Card Style =============================================== */
@@ -88,44 +94,85 @@ body {
     position: relative;
     border-radius: 1.5rem;
 
-    /* einfache halbtransparente Fläche, ähnliche Farbe */
-    background: rgba(20, 20, 25, 0.7);
+    /* halbtransparentes dunkles Glas */
+    background:
+            radial-gradient(
+                    circle at 10% 0%,
+                    rgba(255,255,255,0.16) 0%,
+                    rgba(255,255,255,0) 60%
+            ),
+            rgba(20,20,25,0.45);
 
-    /* kein backdrop-filter (sehr teuer) */
+    /* KEIN backdrop-filter – teuer auf Pi */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 
-    /* einfacher Rand */
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    /* vereinfachter Rand */
+    border: 1px solid rgba(255,255,255,0.2);
 
-    /* reduzierter Schatten */
+    /* REDUZIERTE Box-Shadows – weniger Layer, kleinere Radien */
     box-shadow:
-            0 10px 30px rgba(0, 0, 0, 0.85),
-            0 0 30px rgba(0, 150, 255, 0.25);
+            0 0 20px rgba(255,255,255,0.10) inset,
+            0 18px 40px rgba(0,0,0,0.9),
+            0 0 36px rgba(0,150,255,0.25);
 
-    transform-style: flat;
+    /* 3D-Rendering aus – bringt hier nichts, kostet aber */
+    /* transform-style: preserve-3d; */
 }
 
-/* schwere pseudo-glossy Effekte entfernt */
+/* glossy highlight oben ohne mix-blend-mode */
+.glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+            circle at 50% 0%,
+            rgba(255,255,255,0.35) 0%,
+            rgba(255,255,255,0.08) 28%,
+            rgba(255,255,255,0) 60%
+    );
+    opacity: 0.22;
+    pointer-events: none;
+}
 
-/* Hover ohne übertriebene Effekte */
+/* Rim-Light unten rechts ohne mix-blend-mode */
+.glass-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+            circle at 80% 90%,
+            rgba(0,200,255,0.22) 0%,
+            rgba(0,0,0,0) 60%
+    );
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+/* Hover-Effekt abgespeckt – weniger/kleinere Shadows */
 .glass-card.interactive:hover {
     box-shadow:
-            0 14px 40px rgba(0, 0, 0, 0.9),
-            0 0 36px rgba(0, 200, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.28);
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+            0 26px 70px rgba(0,0,0,0.95),
+            0 14px 40px rgba(0,0,0,0.9),
+            0 0 60px rgba(0,200,255,0.35);
+    border-color: rgba(255,255,255,0.28);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-/* Inhalt klar, aber mit leichtem Shadow */
+/* Inhalt der Glas-Karten: Text-Schatten entschlackt */
 .glass-card-content {
     position: relative;
     z-index: 2;
     color: white;
     text-shadow:
-            0 2px 4px rgba(0, 0, 0, 0.8);
-    /* kein filter/drop-shadow mehr */
+            0 2px 4px rgba(0,0,0,0.85);
+    /* drop-shadow entfernt, doppelt zum text-shadow und teuer */
+    /* filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9)); */
 }
 
-/* Separator bleibt, ist billig */
+/* Separator etwas günstiger (kein zusätzlicher Shadow) */
 .glass-separator {
     width: 100%;
     height: 1px;
@@ -135,61 +182,62 @@ body {
             rgba(255,255,255,0.5) 50%,
             rgba(255,255,255,0) 100%
     );
-    opacity: 0.4;
-    box-shadow: 0 0 4px rgba(255,255,255,0.4);
+    opacity: 0.35;
     margin: 1rem 0;
 }
 
-/* Glow-Aura für aktives Gebet – vereinfacht auf Border + Shadow */
-
+/* Glow-Aura für "aktives Gebet" – unverändert, ist ok */
 .glass-active-ring {
     position: absolute;
-    inset: -3px;
+    inset: -4px;
     border-radius: inherit;
-    border: 2px solid rgba(0, 222, 114, 0.9);
-    box-shadow:
-            0 0 12px rgba(0, 222, 114, 0.8),
-            0 0 24px rgba(0, 222, 114, 0.5);
+    background: radial-gradient(
+            circle at 50% 50%,
+            rgba(0, 222, 114,0.4) 20%,
+            rgba(0,0,0,0) 100%
+    );
     pointer-events: none;
     z-index: 1;
-    background: transparent;
 }
 
 .glass-deactive-ring {
     position: absolute;
-    inset: -3px;
+    inset: -4px;
     border-radius: inherit;
-    border: 2px solid rgba(255, 59, 48, 1);
-    box-shadow:
-            0 0 12px rgba(255, 59, 48, 0.9),
-            0 0 24px rgba(255, 59, 48, 0.6);
+    background: radial-gradient(
+            circle at 50% 50%,
+            rgba(255, 59, 48,1) 20%,
+            rgba(0,0,0,0) 100%
+    );
     pointer-events: none;
     z-index: 1;
-    background: transparent;
 }
 
+/* Glass-Text ohne backdrop-filter, dafür mit leichtem Hintergrund */
 .glass-text {
     border-radius: 1.5rem;
+
+    /* statt backdrop-filter nutzen wir eine leichte Füllfarbe */
+    background-color: rgba(0, 0, 0, 0.35);
+
+    /* feiner Rand bleibt */
     border: 1px solid rgba(255,255,255,0.18);
-    /* kein backdrop-filter */
 }
 
 /* === Vertical Marquee (FooterTicker) ================================= */
 
-/* bleibt gleich */
 .marquee-viewport {
     position: relative;
     overflow: hidden;
-    will-change: transform;
+    /* kein will-change hier, Viewport bewegt sich nicht */
 }
 
 /* Standard: KEINE Animation */
 .marquee-content {
-    will-change: transform;
     transform: translate3d(0, 0, 0);
 }
 
-/* Nur wenn aktiv: animieren */
+/* Nur wenn aktiv: animieren + will-change dann sinnvoll */
 .marquee-running {
     animation-name: vertical-marquee;
     animation-duration: var(--marquee-duration, 30s);
