@@ -176,23 +176,32 @@ body {
 
 /* === Vertical Marquee (FooterTicker) ================================= */
 
+/* bleibt gleich */
 .marquee-viewport {
     position: relative;
     overflow: hidden;
+    will-change: transform;
 }
 
-/* statisches Layout */
+/* Standard: KEINE Animation */
 .marquee-content {
+    will-change: transform;
     transform: translate3d(0, 0, 0);
 }
 
-/* Animation deaktiviert, um CPU zu schonen */
+/* Nur wenn aktiv: animieren */
 .marquee-running {
-    transform: translate3d(0, 0, 0);
+    animation-name: vertical-marquee;
+    animation-duration: var(--marquee-duration, 30s);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform;
 }
 
-/* Keyframes bleiben, werden aber nicht genutzt */
+/* Pausen oben/unten */
 @keyframes vertical-marquee {
     0%   { transform: translate3d(0, 0, 0); }
-    100% { transform: translate3d(0, 0, 0); }
+    10%  { transform: translate3d(0, 0, 0); }
+    90%  { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
+    100% { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
 }
