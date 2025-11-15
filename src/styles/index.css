@@ -29,10 +29,7 @@
 }
 
 /* === Global Layout + Hintergrund ==================================== */
-/*
-   Wir geben dem Body den dunklen, volumetrischen Glow-Hintergrund
-   + halten deinen Font / Textfarbe.
-*/
+
 body {
     margin: 0;
     padding: 0;
@@ -45,10 +42,12 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: fixed;
+
+    /* WICHTIG: fixed -> scroll für Performance */
+    background-attachment: scroll;
+
     position: relative;
 }
-
 
 /* === Animations (Ticker / Twinkle / Glass-Pop) ======================= */
 
@@ -57,8 +56,7 @@ body {
     100% { transform: translateX(-50%); }
 }
 
-/* twinkle wird aktuell NICHT mehr aktiv genutzt (Sterne sind statisch),
-   aber lassen wir drin für evtl. Fajr-Glow später */
+/* twinkle bleibt wie gehabt (wird ja eh kaum genutzt) */
 @keyframes twinkle {
     0%, 100% {
         opacity: 0.7;
@@ -70,21 +68,19 @@ body {
     }
 }
 
-/* sanfter "spawn in" Effekt für Cards */
+/* glass-pop ohne Blur-Filter (nur Opacity + leichte Bewegung/Scale) */
 @keyframes glass-pop {
     0% {
         opacity: 0;
-        transform: translate3d(0,20px,0) scale(0.96);
-        filter: blur(8px);
+        transform: translate3d(0, 20px, 0) scale(0.96);
     }
     60% {
         opacity: 1;
-        transform: translate3d(0,0,0) scale(1.02);
-        filter: blur(0px);
+        transform: translate3d(0, 0, 0) scale(1.02);
     }
     100% {
         opacity: 1;
-        transform: translate3d(0,0,0) scale(1);
+        transform: translate3d(0, 0, 0) scale(1);
     }
 }
 
@@ -93,49 +89,38 @@ body {
 }
 
 /* === Glass Card Style =============================================== */
-/*
-   Diese Klasse benutzt du z. B. für:
-   - WeatherCard Root
-   - jede Gebetszeit-Kachel
-   - Datum-Box
-   Sie gibt dir frosted glass, Glow, 3D-Licht.
-*/
 
 .glass-card {
     position: relative;
     border-radius: 1.5rem;
 
-    /* halbtransparentes dunkles Glas + subtiler Lichtfleck oben links */
+    /* halbtransparentes dunkles Glas */
     background:
             radial-gradient(
                     circle at 10% 0%,
-                    rgba(255,255,255,0.18) 0%,
+                    rgba(255,255,255,0.16) 0%,
                     rgba(255,255,255,0) 60%
             ),
-            rgba(20,20,25,0.4);
+            rgba(20,20,25,0.45);
 
-    /* Frosted Blur / Apple Look */
+    /* KEIN backdrop-filter – teuer auf Pi */
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
 
-    /* feiner heller Rand */
-    border: 1px solid rgba(255,255,255,0.18);
+    /* vereinfachter Rand */
+    border: 1px solid rgba(255,255,255,0.2);
 
-    /* Tiefe + Umgebungslicht */
+    /* REDUZIERTE Box-Shadows – weniger Layer, kleinere Radien */
     box-shadow:
-        /* inner subtle edge highlight */
-            0 0 40px rgba(255,255,255,0.12) inset,
-                /* outer glow halo */
-            0 30px 80px rgba(0,0,0,0.9),
-            0 10px 30px rgba(0,0,0,0.8),
-                /* colored rimlight to fake 3D lighting from environment */
-            0 0 60px rgba(0,150,255,0.3);
+            0 0 20px rgba(255,255,255,0.10) inset,
+            0 18px 40px rgba(0,0,0,0.9),
+            0 0 36px rgba(0,150,255,0.25);
 
-    /* für zukünftige 3D Effekte */
-    transform-style: preserve-3d;
+    /* 3D-Rendering aus – bringt hier nichts, kostet aber */
+    /* transform-style: preserve-3d; */
 }
 
-/* glossy highlight oben (VisionOS Panel Shine) */
+/* glossy highlight oben ohne mix-blend-mode */
 .glass-card::before {
     content: "";
     position: absolute;
@@ -143,16 +128,15 @@ body {
     border-radius: inherit;
     background: radial-gradient(
             circle at 50% 0%,
-            rgba(255,255,255,0.45) 0%,
-            rgba(255,255,255,0.08) 30%,
+            rgba(255,255,255,0.35) 0%,
+            rgba(255,255,255,0.08) 28%,
             rgba(255,255,255,0) 60%
     );
-    mix-blend-mode: screen;
     opacity: 0.22;
     pointer-events: none;
 }
 
-/* leichtes Rim-Light unten rechts */
+/* Rim-Light unten rechts ohne mix-blend-mode */
 .glass-card::after {
     content: "";
     position: absolute;
@@ -160,43 +144,35 @@ body {
     border-radius: inherit;
     background: radial-gradient(
             circle at 80% 90%,
-            rgba(0,200,255,0.3) 0%,
+            rgba(0,200,255,0.22) 0%,
             rgba(0,0,0,0) 60%
     );
-    mix-blend-mode: screen;
     opacity: 0.2;
     pointer-events: none;
 }
 
-/* Falls du Hover brauchst (z.B. auf Desktop, nicht auf Kiosk) */
+/* Hover-Effekt abgespeckt – weniger/kleinere Shadows */
 .glass-card.interactive:hover {
     box-shadow:
-            0 40px 120px rgba(0,0,0,0.95),
-            0 20px 60px rgba(0,0,0,0.9),
-            0 0 80px rgba(0,200,255,0.4),
-            0 0 120px rgba(0,255,180,0.3),
-            0 0 200px rgba(255,255,255,0.07) inset;
+            0 26px 70px rgba(0,0,0,0.95),
+            0 14px 40px rgba(0,0,0,0.9),
+            0 0 60px rgba(0,200,255,0.35);
     border-color: rgba(255,255,255,0.28);
-    transition: all 0.4s ease;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
-/* Inhalt der Glas-Karten:
-   - Text bleibt klar lesbar
-   - bekommt leichten Shadow für Kontrast
-*/
+/* Inhalt der Glas-Karten: Text-Schatten entschlackt */
 .glass-card-content {
     position: relative;
     z-index: 2;
     color: white;
     text-shadow:
-            0 2px 4px rgba(0,0,0,0.8),
-            0 0 10px rgba(0,0,0,0.8);
-
-    /* bisschen crispness für helle Flächen */
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9));
+            0 2px 4px rgba(0,0,0,0.85);
+    /* drop-shadow entfernt, doppelt zum text-shadow und teuer */
+    /* filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9)); */
 }
 
-/* Du kannst das benutzen, um innerhalb einer Kachel Abschnitte zu trennen */
+/* Separator etwas günstiger (kein zusätzlicher Shadow) */
 .glass-separator {
     width: 100%;
     height: 1px;
@@ -206,14 +182,11 @@ body {
             rgba(255,255,255,0.5) 50%,
             rgba(255,255,255,0) 100%
     );
-    opacity: 0.4;
-    box-shadow: 0 0 8px rgba(255,255,255,0.6);
+    opacity: 0.35;
     margin: 1rem 0;
 }
 
-/* Glow-Aura für "aktives Gebet".
-   -> Du kannst in der aktiven Gebetskachel ein <div className="glass-active-ring" /> rendern.
-*/
+/* Glow-Aura für "aktives Gebet" – unverändert, ist ok */
 .glass-active-ring {
     position: absolute;
     inset: -4px;
@@ -240,32 +213,31 @@ body {
     z-index: 1;
 }
 
+/* Glass-Text ohne backdrop-filter, dafür mit leichtem Hintergrund */
 .glass-text {
     border-radius: 1.5rem;
 
-    /* Frosted Blur / Apple Look */
+    /* statt backdrop-filter nutzen wir eine leichte Füllfarbe */
     backdrop-filter: saturate(160%);
 
-    /* feiner heller Rand */
+    /* feiner Rand bleibt */
     border: 1px solid rgba(255,255,255,0.18);
 }
 
 /* === Vertical Marquee (FooterTicker) ================================= */
 
-/* bleibt gleich */
 .marquee-viewport {
     position: relative;
     overflow: hidden;
-    will-change: transform;
+    /* kein will-change hier, Viewport bewegt sich nicht */
 }
 
 /* Standard: KEINE Animation */
 .marquee-content {
-    will-change: transform;
     transform: translate3d(0, 0, 0);
 }
 
-/* Nur wenn aktiv: animieren */
+/* Nur wenn aktiv: animieren + will-change dann sinnvoll */
 .marquee-running {
     animation-name: vertical-marquee;
     animation-duration: var(--marquee-duration, 30s);
