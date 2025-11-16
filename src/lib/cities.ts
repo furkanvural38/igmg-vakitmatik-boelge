@@ -41,7 +41,7 @@ export const cityConfigs = {
         excelFallbackSheet: "neustadt",
     },
     peine: {
-        mosqueName: "PEINE CAMİ",
+        mosqueName: "PEINE ŞUBESİ TAKVA CÂMİ-İ",
         weatherCityName: "Peine",
         prayerApiUrl: `${API_BASE}peine`,
         excelFallbackSheet: "peine",
@@ -89,7 +89,7 @@ export const cityConfigs = {
         excelFallbackSheet: "stadthagen",
     },
     osterode: {
-        mosqueName: "OSTERODE CAMİ",
+        mosqueName: "OSTERODE ŞUBESİ FATİH CÂMİ-İ",
         weatherCityName: "Osterode am Harz",
         prayerApiUrl: `${API_BASE}osterode`,
         excelFallbackSheet: "osterode",
@@ -107,7 +107,7 @@ export const cityConfigs = {
         excelFallbackSheet: "magdeburg",
     },
     wolfsburg: {
-        mosqueName: "WOLFSBURG CAMİ",
+        mosqueName: "WOLFSBURG ŞUBESİ HASENE CÂMİ-İ",
         weatherCityName: "Wolfsburg",
         prayerApiUrl: `${API_BASE}wolfsburg`,
         excelFallbackSheet: "wolfsburg",
