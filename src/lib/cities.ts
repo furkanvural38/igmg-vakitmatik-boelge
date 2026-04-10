@@ -34,6 +34,12 @@ export const cityConfigs = {
         prayerApiUrl: `${API_BASE}laatzen`,
         excelFallbackSheet: "laatzen",
     },
+    ahlem: {
+        mosqueName: "AHLEMER KULTUR-UND BILDUNG E.V",
+        weatherCityName: "Hannover",
+        prayerApiUrl: `${API_BASE}hannover`,
+        excelFallbackSheet: "hannover",
+    },
     neustadt: {
         mosqueName: "NEUSTADT CAMİ",
         weatherCityName: "Neustadt am Rübenberge",
