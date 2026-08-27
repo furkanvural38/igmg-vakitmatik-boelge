@@ -76,7 +76,7 @@ export const cityConfigs = {
         logoKey: "igmg",
     },
     salzgitter: {
-        mosqueName: "LEBENSTEDT OV ŞUBESİ SELİMİYE CÂMİ-İ",
+        mosqueName: "LEBENSTEDT ŞUBESİ SELİMİYE CÂMİ-İ",
         weatherCityName: "Salzgitter",
         prayerApiUrl: `${API_BASE}salzgitter`,
         excelFallbackSheet: "salzgitter",
