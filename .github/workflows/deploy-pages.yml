@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -16,28 +17,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # Qualitaetsgate vor dem Deploy. Vorher ging der Workflow direkt von
+  # "npm ci" zu "vite build" - Lint-Fehler und Typfehler haben es ungeprueft
+  # bis auf die Displays geschafft.
+  verify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
-        env:
-          CI: true
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npx tsc -b
+      - name: Unit tests
+        run: npm test
+
+  build:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
 
       - name: Build web (Vite --mode pages)
         run: npm run build:web
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 

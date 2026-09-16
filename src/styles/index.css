@@ -1,255 +1,214 @@
-/* Tailwind muss ganz oben importiert werden */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* === Fonts ========================================================== */
-@font-face {
-    font-family: 'ClashDisplay';
-    src: url('../assets/font/ClashDisplay-Variable.ttf') format('truetype');
-    font-weight: 100 900;
-    font-style: normal;
-    font-display: swap;
-}
+/* === Basis ==========================================================
+   Schriften: Die frühere @font-face-Deklaration für ClashDisplay zeigte auf
+   eine 0-Byte-Datei. Vite bettete sie als leeren data:-URI ein, der Browser
+   verwarf sie ("Failed to decode downloaded font") und fiel still auf
+   system-ui zurück — auf allen Displays, unbemerkt. Dasselbe bei 'Bebas Neue',
+   das nirgends geladen wurde. Statt zwei kaputte Referenzen stehenzulassen,
+   ist der Stack jetzt ehrlich in tailwind.config.js deklariert.
+   Zum Wiedereinsetzen der echten Schrift: siehe README.
+   =================================================================== */
 
-/* Utility-Fonts */
-.font-bebas {
-    font-family: 'Bebas Neue', sans-serif;
-}
-
-/* Riesige Uhr / Sekundenanzeige */
-.text-clock {
-    font-size: 512px;
-    padding-bottom: 64px;
-}
-
-.text-seconds {
-    font-size: 256px;
-    padding-bottom: 64px;
-}
-
-/* === Global Layout + Hintergrund ==================================== */
-
+html,
 body {
     margin: 0;
     padding: 0;
-    min-height: 100vh;
-
-    font-family: 'ClashDisplay', system-ui, sans-serif;
-    color: #fff;
-
     background-color: #000;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-
-    /* WICHTIG: fixed -> scroll für Performance */
-    background-attachment: scroll;
-
-    position: relative;
 }
 
-/* === Animations (Ticker / Twinkle / Glass-Pop) ======================= */
-
-@keyframes ticker {
-    0%   { transform: translateX(0%); }
-    100% { transform: translateX(-50%); }
+body {
+    min-height: 100vh;
+    font-family: theme('fontFamily.sans');
+    color: #fff;
+    /* Kiosk: nichts markierbar, kein Overscroll, keine Textvergrößerung. */
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
 }
 
-/* twinkle bleibt wie gehabt (wird ja eh kaum genutzt) */
-@keyframes twinkle {
-    0%, 100% {
-        opacity: 0.7;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1.3);
-    }
+/* Alles Numerische: Ziffern muessen gleich breit laufen, sonst wandert die
+   Uhr bei jedem Sekundenwechsel sichtbar hin und her.
+
+   font-variant-numeric allein reicht NICHT: bei "ui-sans-serif"/"system-ui"
+   wird das tnum-Feature nicht angewandt (nachgemessen: 23 px Unterschied
+   zwischen "11" und "44"). Deshalb zusaetzlich ein Schriftstack, dessen
+   Ziffern schon im Design gleich breit sind — Arial, Liberation Sans und
+   DejaVu Sans. Das entspricht dem, was die Uhr vor der Token-Umstellung
+   ueber das generische "sans-serif" bekommen hat. */
+.tabular {
+    font-family: theme('fontFamily.tabular');
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
 }
 
-/* glass-pop ohne Blur-Filter (nur Opacity + leichte Bewegung/Scale) */
-@keyframes glass-pop {
-    0% {
-        opacity: 0;
-        transform: translate3d(0, 20px, 0) scale(0.96);
-    }
-    60% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1.02);
-    }
-    100% {
-        opacity: 1;
-        transform: translate3d(0, 0, 0) scale(1);
-    }
-}
-
-.glass-animate-in {
-    animation: glass-pop 0.6s cubic-bezier(.16,1,.3,1) both;
-}
-
-/* === Glass Card Style =============================================== */
+/* === Glass Card ===================================================== */
 
 .glass-card {
     position: relative;
     border-radius: 1.5rem;
 
-    /* halbtransparentes dunkles Glas */
     background:
-            radial-gradient(
-                    circle at 10% 0%,
-                    rgba(255,255,255,0.16) 0%,
-                    rgba(255,255,255,0) 60%
-            ),
-            rgba(20,20,25,0.45);
+        radial-gradient(circle at 10% 0%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%),
+        theme('colors.surface.DEFAULT');
 
-    /* KEIN backdrop-filter – teuer auf Pi */
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+    /* Kein backdrop-filter: auf dem Pi der teuerste Effekt überhaupt. */
+    border: 1px solid theme('colors.hairline');
 
-    /* vereinfachter Rand */
-    border: 1px solid rgba(255,255,255,0.2);
-
-    /* REDUZIERTE Box-Shadows – weniger Layer, kleinere Radien */
     box-shadow:
-            0 0 20px rgba(255,255,255,0.10) inset,
-            0 18px 40px rgba(0,0,0,0.9),
-            0 0 36px rgba(0,150,255,0.25);
-
-    /* 3D-Rendering aus – bringt hier nichts, kostet aber */
-    /* transform-style: preserve-3d; */
+        0 0 20px rgba(255, 255, 255, 0.1) inset,
+        0 18px 40px rgba(0, 0, 0, 0.9),
+        0 0 36px rgba(0, 150, 255, 0.25);
 }
 
-/* glossy highlight oben ohne mix-blend-mode */
 .glass-card::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
     background: radial-gradient(
-            circle at 50% 0%,
-            rgba(255,255,255,0.35) 0%,
-            rgba(255,255,255,0.08) 28%,
-            rgba(255,255,255,0) 60%
+        circle at 50% 0%,
+        rgba(255, 255, 255, 0.35) 0%,
+        rgba(255, 255, 255, 0.08) 28%,
+        rgba(255, 255, 255, 0) 60%
     );
     opacity: 0.22;
     pointer-events: none;
 }
 
-/* Rim-Light unten rechts ohne mix-blend-mode */
 .glass-card::after {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: radial-gradient(
-            circle at 80% 90%,
-            rgba(0,200,255,0.22) 0%,
-            rgba(0,0,0,0) 60%
-    );
+    background: radial-gradient(circle at 80% 90%, rgba(0, 200, 255, 0.22) 0%, rgba(0, 0, 0, 0) 60%);
     opacity: 0.2;
     pointer-events: none;
 }
 
-/* Hover-Effekt abgespeckt – weniger/kleinere Shadows */
-.glass-card.interactive:hover {
-    box-shadow:
-            0 26px 70px rgba(0,0,0,0.95),
-            0 14px 40px rgba(0,0,0,0.9),
-            0 0 60px rgba(0,200,255,0.35);
-    border-color: rgba(255,255,255,0.28);
-    transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-
-/* Inhalt der Glas-Karten: Text-Schatten entschlackt */
 .glass-card-content {
     position: relative;
     z-index: 2;
-    color: white;
-    text-shadow:
-            0 2px 4px rgba(0,0,0,0.85);
-    /* drop-shadow entfernt, doppelt zum text-shadow und teuer */
-    /* filter: drop-shadow(0 2px 4px rgba(0,0,0,0.9)); */
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85);
 }
 
-/* Separator etwas günstiger (kein zusätzlicher Shadow) */
-.glass-separator {
-    width: 100%;
-    height: 1px;
-    background: linear-gradient(
-            to right,
-            rgba(255,255,255,0) 0%,
-            rgba(255,255,255,0.5) 50%,
-            rgba(255,255,255,0) 100%
-    );
-    opacity: 0.35;
-    margin: 1rem 0;
-}
-
-/* Glow-Aura für "aktives Gebet" – unverändert, ist ok */
-.glass-active-ring {
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    background: radial-gradient(
-            circle at 50% 50%,
-            rgba(0, 222, 114,0.4) 20%,
-            rgba(0,0,0,0) 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-}
-
-.glass-deactive-ring {
-    position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    background: radial-gradient(
-            circle at 50% 50%,
-            rgba(255, 59, 48,1) 20%,
-            rgba(0,0,0,0) 100%
-    );
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* Glass-Text ohne backdrop-filter, dafür mit leichtem Hintergrund */
+/* Leichter Rand für abgesetzte Textflächen. */
 .glass-text {
     border-radius: 1.5rem;
-
-    /* statt backdrop-filter nutzen wir eine leichte Füllfarbe */
-    backdrop-filter: saturate(160%);
-
-    /* feiner Rand bleibt */
-    border: 1px solid rgba(255,255,255,0.18);
+    border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
-/* === Vertical Marquee (FooterTicker) ================================= */
+/* === Zustände der aktiven Gebetskachel ==============================
+   Farben kommen aus tailwind.config.js, damit Kachel, Ring und Balken
+   garantiert denselben Ton benutzen.
+   =================================================================== */
+
+.tile-active {
+    background: radial-gradient(circle at 50% 50%, theme('colors.brand.wash') 0%, rgba(0, 0, 0, 0) 70%);
+    transition: background 0.4s ease;
+}
+
+.tile-warning {
+    background: radial-gradient(circle at 50% 50%, theme('colors.danger.wash') 0%, rgba(0, 0, 0, 0) 70%);
+    transition: background 0.4s ease;
+}
+
+.tile-ring {
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.tile-ring--active {
+    background: radial-gradient(circle at 50% 50%, theme('colors.brand.ring') 20%, rgba(0, 0, 0, 0) 100%);
+}
+
+.tile-ring--warning {
+    background: radial-gradient(circle at 50% 50%, theme('colors.danger.ring') 20%, rgba(0, 0, 0, 0) 100%);
+}
+
+/* === Animationen ==================================================== */
+
+@keyframes glass-pop {
+    0%   { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.96); }
+    60%  { opacity: 1; transform: translate3d(0, 0, 0) scale(1.02); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.glass-animate-in {
+    animation: glass-pop 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* === Vertikales Marquee (FooterTicker) ============================== */
 
 .marquee-viewport {
     position: relative;
     overflow: hidden;
-    /* kein will-change hier, Viewport bewegt sich nicht */
+    display: flex;
+    flex-direction: column;
+
+    /* Standard ist Ausrichtung nach oben. Zentriert wird NUR, wenn der Text
+       ohnehin passt: bei Ueberlauf schneidet justify-content:center oben und
+       unten gleichzeitig ab, der Text beginnt dann optisch mitten im Satz. */
+    justify-content: flex-start;
+
+    /* Atemraum gehoert an den Viewport, NICHT an den Inhalt.
+       Vorher sass er als margin-top/padding-bottom an den Textknoten und
+       zaehlte damit als "zu enthuellender Inhalt": 40 px reines Nichts haben
+       ein Ayet, das sichtbar passte, in eine Scroll-Animation gezwungen.
+       Am Viewport wird er bei der Messung sauber abgezogen - und weil der
+       Inhalt unterhalb von padding-top beginnt, bleibt er am Ende der Fahrt
+       automatisch auch unten stehen. */
+    padding-block: 1rem;
 }
 
-/* Standard: KEINE Animation */
+.marquee-viewport[data-overflow="false"] {
+    justify-content: center;
+}
+
 .marquee-content {
     transform: translate3d(0, 0, 0);
+
+    /* Entscheidend: als Flex-Item in einem Container fester Hoehe wuerde der
+       Inhalt sonst auf Viewport-Hoehe zusammengestaucht. Die Messung ergaebe
+       dann 0 px Ueberlauf und es wuerde nie gescrollt — der Text bliebe
+       abgeschnitten stehen. */
+    flex-shrink: 0;
 }
 
-/* Nur wenn aktiv: animieren + will-change dann sinnvoll */
+/* will-change erst setzen, wenn wirklich animiert wird.
+   Verzoegerung und Dauer setzt die Komponente inline:
+   - animation-delay  = Lesepause oben
+   - animation-duration = reine Fahrtzeit
+   Die Pause danach laeuft ueber einen Timer, weil erst dann weitergeschaltet
+   werden darf. Absolute Pausen statt Prozentanteilen an der Gesamtdauer -
+   sonst haette ein langer Text eine entsprechend lange Anlaufpause und ein
+   kurzer fast keine. */
 .marquee-running {
     animation-name: vertical-marquee;
-    animation-duration: var(--marquee-duration, 30s);
     animation-timing-function: linear;
-    animation-iteration-count: infinite;
+    /* Genau ein Durchlauf pro Inhalt. Das Weiterschalten haengt am
+       animationend-Ereignis, damit nie mitten im Text gewechselt wird. */
+    animation-iteration-count: 1;
+    /* both: haelt den Anfangszustand waehrend der Verzoegerung und den
+       Endzustand danach. */
+    animation-fill-mode: both;
     will-change: transform;
 }
 
-/* Pausen oben/unten */
 @keyframes vertical-marquee {
-    0%   { transform: translate3d(0, 0, 0); }
-    10%  { transform: translate3d(0, 0, 0); }
-    90%  { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
-    100% { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
+}
+
+/* === Bewegung reduzieren ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    /* Nur dekorative Bewegung abschalten. Das Marquee bleibt: es macht Text
+       zugaenglich, der sonst abgeschnitten waere — funktionale Bewegung. */
+    .glass-animate-in { animation: none; }
 }

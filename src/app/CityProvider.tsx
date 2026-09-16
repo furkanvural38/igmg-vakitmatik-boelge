@@ -1,19 +1,7 @@
-import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
-    useMemo,
-    useCallback,
-    useRef,
-} from "react";
+// src/app/CityProvider.tsx
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-    cityConfigs,
-    resolveCity,
-    type CityKey,
-    type CityConfig,
-} from "../lib/cities";
+import { cityConfigs, resolveCity, type CityKey } from "../lib/cities";
 import {
     ApiError,
     describeApiError,
@@ -26,42 +14,19 @@ import {
     type DailyContentResult,
 } from "../features/footerTicker/apiDailyContent";
 import { useMidnightRefresh } from "../hooks/useMidnightRefresh";
+import { CityContext, type CityContextValue } from "./cityContext";
 
 /** Wartezeiten für erneute Versuche, wenn der Server gerade nicht liefert (502/503/Netz). */
 const RETRY_DELAYS_MS = [60_000, 120_000, 300_000, 900_000];
 
-interface CityContextValue {
-    cityKey: string;
-    config?: CityConfig;
-    isValidCity: boolean;
+type CityState = {
     loading: boolean;
     error: string | null;
     prayerTimes: PrayerTimes | null;
     dailyContent: DailyContentResult | null;
-    /** z. B. "5 Rebiulahir 1448" */
     hijriDate: string | null;
-    /** ISO-Datum der geladenen Zeiten, z. B. "2026-09-16" */
-    date: string | null;
-    /** IANA-Zone der Stadt, z. B. "Europe/Berlin" */
-    timezone: string | null;
-    /** woher die angezeigten Zeiten stammen */
     source: PrayerTimesSource | null;
-    reload: () => void;
-}
-
-const CityContext = createContext<CityContextValue | undefined>(undefined);
-
-type CityState = Pick<
-    CityContextValue,
-    | "loading"
-    | "error"
-    | "prayerTimes"
-    | "dailyContent"
-    | "hijriDate"
-    | "date"
-    | "timezone"
-    | "source"
->;
+};
 
 const INITIAL_STATE: CityState = {
     loading: true,
@@ -69,8 +34,6 @@ const INITIAL_STATE: CityState = {
     prayerTimes: null,
     dailyContent: null,
     hijriDate: null,
-    date: null,
-    timezone: null,
     source: null,
 };
 
@@ -155,8 +118,6 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
                 prayerTimes: times,
                 dailyContent: dailyData,
                 hijriDate: times.hijriDate,
-                date: times.date,
-                timezone: times.timezone,
                 source,
             });
             // Aus dem Cache bedient -> im Hintergrund weiter probieren
@@ -202,19 +163,10 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
             prayerTimes: state.prayerTimes,
             dailyContent: state.dailyContent,
             hijriDate: state.hijriDate,
-            date: state.date,
-            timezone: state.timezone,
             source: state.source,
-            reload: () => void loadData(),
         }),
-        [cityKey, config, isValidCity, state, loadData]
+        [cityKey, config, isValidCity, state]
     );
 
     return <CityContext.Provider value={value}>{children}</CityContext.Provider>;
-}
-
-export function useCity() {
-    const ctx = useContext(CityContext);
-    if (!ctx) throw new Error("useCity must be used within CityProvider");
-    return ctx;
 }

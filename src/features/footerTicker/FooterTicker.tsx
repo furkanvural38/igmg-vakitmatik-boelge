@@ -1,182 +1,205 @@
 // src/features/footerTicker/FooterTicker.tsx
-import { useMemo, useState, useEffect, useRef } from "react";
-import { useCity } from "../../app/CityProvider";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCity } from "../../app/cityContext";
+import { planTicker } from "./tickerTiming";
 
 import AllahImg from "../../assets/ressources/ALLAH-image.png";
 import MuhammadImg from "../../assets/ressources/Muhammad-image.png";
 import DuaImg from "../../assets/ressources/dua-image.png";
 
-function getImageForKey(key: string | undefined) {
-    switch (key) {
-        case "allah": return AllahImg;
-        case "muhammad": return MuhammadImg;
-        case "dua": return DuaImg;
-        default: return null;
-    }
-}
+const IMAGES: Record<string, string> = {
+    allah: AllahImg,
+    muhammad: MuhammadImg,
+    dua: DuaImg,
+};
 
+/** Reserve, falls animationend ausbleibt. */
+const ANIMATION_END_GRACE_MS = 750;
+
+/**
+ * Ayet / Hadis / Dua im Wechsel, bei langem Text mit vertikalem Marquee.
+ *
+ * Der Takt haengt an der Lesezeit, nicht an einem festen Intervall: jeder
+ * Inhalt laeuft genau einen Durchlauf und schaltet erst danach weiter. Vorher
+ * liefen ein 20-Sekunden-Timer und eine endlos wiederholende Animation
+ * unabhaengig nebeneinander - je nach Textlaenge wurde entweder mitten im Satz
+ * umgeschaltet oder der Text sprang waehrend der Anzeige zurueck an den Anfang.
+ */
 export function FooterTicker() {
     const { dailyContent } = useCity();
-    const [index, setIndex] = useState(0);
+    const items = useMemo(() => dailyContent?.items ?? [], [dailyContent]);
 
-    // alle 20s zum nächsten Item
-    useEffect(() => {
-        const id = setInterval(() => {
-            setIndex(prev => {
-                if (!dailyContent?.items?.length) return 0;
-                return (prev + 1) % dailyContent.items.length;
-            });
-        }, 20000);
-        return () => clearInterval(id);
-    }, [dailyContent]);
+    // Laeuft frei hoch, der Index wird erst beim Lesen umgebrochen. Dadurch
+    // braucht das Weiterschalten die Anzahl der Inhalte nicht zu kennen.
+    const [cycle, setCycle] = useState(0);
+    const activeItem = items.length > 0 ? items[cycle % items.length] : null;
 
-    const activeItem = useMemo(() => {
-        if (!dailyContent?.items?.length) return null;
-        const safe = index % dailyContent.items.length;
-        return dailyContent.items[safe];
-    }, [dailyContent, index]);
+    const advance = useCallback(() => setCycle((c) => c + 1), []);
 
-    // CSS-Marquee: wir messen Distanz und setzen CSS-Variablen am Content
     const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
-// im FooterTicker, ersetze den useEffect-Block
-    useEffect(() => {
+    // useLayoutEffect: gemessen und ausgerichtet wird vor dem ersten Paint,
+    // sonst blitzt ein falsch positionierter Text auf.
+    useLayoutEffect(() => {
         const viewport = viewportRef.current;
         const content = contentRef.current;
-        if (!viewport || !content) return;
+        if (!viewport || !content || !activeItem) return;
 
-        const SPEED_PX_PER_SEC = 40;
-        const TOP_BOTTOM_PAUSE_FRAC = 0.1;
-        const MIN_DURATION_SEC = 8;
-        const DIST_THRESHOLD_PX = 30; // unterhalb: nicht scrollen
+        let disposed = false;
+        let advanced = false;
+        let advanceTimer: number | undefined;
+        let appliedDistance = -1;
+        let timing: ReturnType<typeof planTicker> | null = null;
 
-        const enableAnimation = (distance: number) => {
-            // Dauer berechnen – inkl. Pausenanteil
-            const baseDuration = distance / SPEED_PX_PER_SEC; // reine Fahrtzeit
-            const durationSec = Math.max(
-                MIN_DURATION_SEC,
-                baseDuration / (1 - 2 * TOP_BOTTOM_PAUSE_FRAC)
-            );
-
-            content.style.setProperty("--scroll-distance", `${distance}px`);
-            content.style.setProperty("--marquee-duration", `${durationSec}s`);
-
-            // Animation sauber neu starten
-            content.classList.remove("marquee-running");
-            // reflow
-            // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-            content.offsetHeight;
-            content.classList.add("marquee-running");
-        };
-
-        const disableAnimation = () => {
-            content.classList.remove("marquee-running");
-            content.style.removeProperty("--scroll-distance");
-            content.style.removeProperty("--marquee-duration");
-            content.style.animationName = "none";
-            content.style.transform = "translate3d(0,0,0)";
-        };
-
-        const measureAndApply = () => {
-            // getBoundingClientRect ist robuster als scrollHeight/clientHeight
-            const viewportH = viewport.getBoundingClientRect().height;
-            const contentH = content.getBoundingClientRect().height;
-            const distance = Math.max(0, Math.round(contentH - viewportH));
-
-            if (distance <= DIST_THRESHOLD_PX) {
-                disableAnimation();
-            } else {
-                enableAnimation(distance);
+        const clearAdvanceTimer = () => {
+            if (advanceTimer !== undefined) {
+                clearTimeout(advanceTimer);
+                advanceTimer = undefined;
             }
         };
 
-        const ro = new ResizeObserver(measureAndApply);
-        ro.observe(viewport);
-        ro.observe(content);
+        /** Genau einmal pro Durchlauf weiterschalten - per Event oder per Timer. */
+        const advanceOnce = () => {
+            if (disposed || advanced) return;
+            advanced = true;
+            advance();
+        };
 
-        // initial und bei Item-Wechsel
-        measureAndApply();
+        const stopScrolling = () => {
+            content.classList.remove("marquee-running");
+            content.style.removeProperty("--scroll-distance");
+            content.style.removeProperty("animation-delay");
+            content.style.removeProperty("animation-duration");
+        };
 
-        return () => ro.disconnect();
-    }, [activeItem]);
+        const apply = () => {
+            if (disposed) return;
 
+            // scrollHeight/clientHeight sind Layout-Werte in CSS-Pixeln.
+            // getBoundingClientRect() waere hier falsch: die Buehne ist per
+            // transform: scale() verkleinert, die Rechteckmasse kaemen also um
+            // den Skalierungsfaktor zu klein zurueck (bei 4K auf Full-HD ein
+            // Drittel) - die Animation wuerde nur einen Bruchteil der noetigen
+            // Strecke fahren und den Text abgeschnitten stehen lassen.
+            //
+            // Gemessen wird ausschliesslich der Textblock: der Atemraum sitzt am
+            // Viewport und wird hier abgezogen. Sonst zaehlt Leerraum als Inhalt,
+            // der aufgedeckt werden muss - genau daran ist ein sichtbar
+            // passendes Ayet in eine Scroll-Animation gerutscht.
+            const cs = getComputedStyle(viewport);
+            const padding = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            const usable = Math.max(0, viewport.clientHeight - padding);
+            const hidden = Math.max(0, content.scrollHeight - usable);
+
+            // Ohne diese Schranke startet jeder ResizeObserver-Aufschlag die
+            // Animation neu und der Text ruckt zurueck an den Anfang.
+            if (hidden === appliedDistance) return;
+            appliedDistance = hidden;
+            clearAdvanceTimer();
+
+            const plan = planTicker(hidden);
+            timing = plan;
+
+            if (!plan.scrolls) {
+                viewport.dataset.overflow = "false";
+                stopScrolling();
+                advanceTimer = window.setTimeout(advanceOnce, plan.totalMs);
+                return;
+            }
+
+            viewport.dataset.overflow = "true";
+
+            content.style.setProperty("--scroll-distance", plan.distancePx + "px");
+            content.style.animationDelay = Math.round(plan.holdTopMs) + "ms";
+            content.style.animationDuration = Math.round(plan.travelMs) + "ms";
+
+            // Deterministischer Neustart: Klasse ab, Reflow erzwingen, Klasse dran.
+            content.classList.remove("marquee-running");
+            void content.offsetHeight;
+            content.classList.add("marquee-running");
+
+            // Sicherheitsnetz, falls animationend nicht kommt (unterdrueckte
+            // Animationen, Tab im Hintergrund) - sonst bliebe der Ticker stehen.
+            advanceTimer = window.setTimeout(advanceOnce, plan.totalMs + ANIMATION_END_GRACE_MS);
+        };
+
+        const onAnimationEnd = (event: AnimationEvent) => {
+            // Nur der Durchlauf des Inhalts zaehlt, nicht die Einblend-Animation
+            // der Fusskarte, die nach oben durchblubbert.
+            if (event.target !== content) return;
+
+            // Nicht sofort weiterschalten: der Text steht jetzt vollstaendig
+            // aufgedeckt da und will zu Ende gelesen werden.
+            clearAdvanceTimer();
+            advanceTimer = window.setTimeout(advanceOnce, timing?.holdBottomMs ?? 0);
+        };
+        content.addEventListener("animationend", onAnimationEnd);
+
+        const observer = new ResizeObserver(apply);
+        observer.observe(viewport);
+        observer.observe(content);
+
+        apply();
+        // Schriften koennen nach dem ersten Layout noch die Zeilenumbrueche und
+        // damit die Hoehe veraendern.
+        document.fonts?.ready.then(apply).catch(() => {});
+
+        return () => {
+            disposed = true;
+            clearAdvanceTimer();
+            observer.disconnect();
+            content.removeEventListener("animationend", onAnimationEnd);
+            stopScrolling();
+        };
+    }, [cycle, activeItem, advance]);
+
+    const image = activeItem ? IMAGES[activeItem.imageKey] : undefined;
 
     return (
         <footer
-            className="
-        glass-card
-        glass-card-content
-        glass-animate-in
-        w-full
-        flex
-        items-center
-        justify-start
-        text-white
-        mx-auto
-        rounded-3xl
-        h-[450px]
-        px-8
-      "
+            className="glass-card glass-card-content glass-animate-in mx-auto flex h-[450px] w-full items-center justify-start rounded-3xl px-8 text-white"
             style={{
                 boxShadow:
                     "0 30px 80px rgba(0,0,0,0.9), 0 10px 30px rgba(0,0,0,0.8), 0 0 60px rgba(0,150,255,0.3)",
             }}
         >
             {!activeItem ? (
-                <div
-                    className="text-white font-light flex items-center"
-                    style={{ fontSize: "4rem", lineHeight: 1.2, paddingLeft: "2rem" }}
-                >
-                    Lade islamische Inhalte…
+                <div className="flex items-center pl-8 text-[4rem] font-light leading-[1.2] text-white">
+                    Lade islamische Inhalte...
                 </div>
             ) : (
                 <>
-                    {/* LINKER BLOCK: großes Bild */}
-                    <div
-                        className="flex-shrink-0 flex items-center justify-center"
-                        style={{ marginLeft: "0.5rem", marginRight: "2rem", height: "22rem", width: "22rem" }}
-                    >
-                        {(() => {
-                            const img = getImageForKey(activeItem.imageKey);
-                            if (img) {
-                                return (
-                                    <img
-                                        src={img}
-                                        alt={activeItem.title}
-                                        style={{ height: "100%", width: "100%", objectFit: "contain" }}
-                                    />
-                                );
-                            }
-                            return (
-                                <div className="text-[#009972] font-bold text-center" style={{ fontSize: "4rem", lineHeight: 1.1 }}>
-                                    {activeItem.title}
-                                </div>
-                            );
-                        })()}
+                    <div className="ml-2 mr-8 flex h-[22rem] w-[22rem] flex-shrink-0 items-center justify-center">
+                        {image ? (
+                            <img src={image} alt={activeItem.title} className="h-full w-full object-contain" />
+                        ) : (
+                            <div className="text-center text-[4rem] font-bold leading-[1.1] text-brand">
+                                {activeItem.title}
+                            </div>
+                        )}
                     </div>
 
-                    {/* RECHTER BLOCK: reines CSS-Marquee */}
-                    <div
-                        ref={viewportRef}
-                        className="marquee-viewport flex-grow flex justify-center items-center overflow-hidden"
-                        style={{ height: "25rem" }}
-                    >
+                    {/* Ausrichtung und Ueberlauf regelt .marquee-viewport in der CSS -
+                        bewusst nicht per Tailwind, damit justify-content nicht an
+                        zwei Stellen gesetzt wird. */}
+                    <div ref={viewportRef} className="marquee-viewport h-[25rem] flex-grow">
                         <div
-                            key={activeItem.title} // bei Item-Wechsel Animation neu starten
+                            // Neuer Knoten pro Durchlauf: garantiert einen sauberen
+                            // Start ohne Rest-Transform der vorigen Animation.
+                            key={cycle}
                             ref={contentRef}
-                            className="marquee-content flex flex-col w-full text-white"
-                            style={{
-                                rowGap: "2rem",
-                                maxWidth: "100%",
-                            }}
+                            className="marquee-content flex w-full max-w-full flex-col gap-y-8 text-white"
                         >
-                            <div className="text-white text-center mt-10" style={{ fontSize: "6rem", lineHeight: 1.2 }}>
+                            {/* Kein dekorativer Aussenabstand: der Atemraum sitzt
+                                als padding am Viewport, sonst zaehlt er als Inhalt,
+                                der aufgedeckt werden muss. */}
+                            <div className="text-center text-[6rem] leading-[1.2] text-white">
                                 {activeItem.text}
                             </div>
 
                             {activeItem.source ? (
-                                <div className="text-white self-end text-right" style={{ fontSize: "5rem", lineHeight: 1.2 }}>
+                                <div className="self-end text-right text-[5rem] leading-[1.2] text-white">
                                     {activeItem.source}
                                 </div>
                             ) : null}

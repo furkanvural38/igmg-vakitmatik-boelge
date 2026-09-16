@@ -1,57 +1,58 @@
 // src/app/App.tsx
 import { AppShell } from "./AppShell";
-import { useCity } from "./CityProvider";
+import { useCity } from "./cityContext";
+import { StatusScreen } from "./StatusScreen";
 import { PrayerPanel } from "../features/prayer/PrayerPanel";
 import { FooterTicker } from "../features/footerTicker/FooterTicker";
 import { TopHeader } from "../features/header/TopHeader";
 
-
-
-
 export default function App() {
-    const {
-        isValidCity,
-        cityKey,
-        loading,
-        error,
-    } = useCity();
+    const { isValidCity, cityKey, loading, error } = useCity();
 
+    if (!isValidCity) {
+        return (
+            <AppShell>
+                <StatusScreen
+                    tone="error"
+                    title="Unbekannte Stadt"
+                    detail={cityKey ? `"${cityKey}" ist nicht konfiguriert.` : undefined}
+                />
+            </AppShell>
+        );
+    }
+
+    if (loading) {
+        return (
+            <AppShell>
+                <StatusScreen tone="warning" title="Lädt…" />
+            </AppShell>
+        );
+    }
+
+    if (error) {
+        return (
+            <AppShell>
+                <StatusScreen tone="error" title="Fehler beim Laden" detail={error} />
+            </AppShell>
+        );
+    }
 
     return (
         <AppShell>
-            {!isValidCity ? (
-                <div className="w-full h-full flex items-center justify-center bg-transparent text-red-500 text-6xl font-bold">
-                    Unbekannte Stadt: {cityKey}
-                </div>
-            ) : loading ? (
-                <div className="w-full h-full flex items-center justify-center bg-transparent text-yellow-400 text-6xl font-bold">
-                    Lädt…
-                </div>
-            ) : error ? (
-                <div className="w-full h-full flex items-center justify-center bg-transparent text-red-500 text-6xl font-bold text-center px-20">
-                    Fehler beim Laden:
-                    <br />
-                    {error}
-                </div>
-            ) : (
-                <div className="flex flex-col w-full h-full text-white bg-transparent">
+            <div className="flex h-full w-full flex-col bg-transparent text-white">
+                {/* TopHeader liegt fixed über der Bühne und beansprucht keinen Platz
+                    im Fluss. Der Abstand unten hält den Inhalt darunter frei;
+                    ändert sich die Kopfhöhe, muss er mitwandern. */}
+                <TopHeader />
 
-                    {/* HEADER */}
-                    <header className="w-full pl-8 pr-0 py-8 flex items-start justify-between">
-                        <TopHeader />
-                    </header>
+                <main className="mt-64 flex flex-1 flex-col items-center justify-center gap-16">
+                    <PrayerPanel />
+                </main>
 
-                    {/* MITTLERER BEREICH */}
-                    <main className="flex-1 flex flex-col items-center justify-center gap-16 text-white mt-64">
-                        <PrayerPanel />
-                    </main>
-
-                    {/* FOOTER */}
-                    <footer className="w-full p-8">
-                        <FooterTicker />
-                    </footer>
+                <div className="w-full p-8">
+                    <FooterTicker />
                 </div>
-            )}
+            </div>
         </AppShell>
     );
 }
