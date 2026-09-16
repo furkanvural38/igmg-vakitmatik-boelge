@@ -53,7 +53,9 @@ jobs:
       - name: Build web (Vite --mode pages)
         run: npm run build:web
         env:
-          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          # Leeres ${{ vars.X }} wird zu "", und Vite backt das in den Client.
+          # Ohne Fallback wuerde die App /api/v1 auf github.io statt den Namaz-Server treffen.
+          VITE_API_BASE: ${{ vars.VITE_API_BASE != '' && vars.VITE_API_BASE || 'https://igmg-namaz.synology.me:3838' }}
           VITE_OPENWEATHER_API_KEY: ${{ secrets.VITE_OPENWEATHER_API_KEY }}
 
       - uses: actions/upload-pages-artifact@v3

@@ -1,5 +1,5 @@
 // src/features/footerTicker/apiDailyContent.ts
-import { API_V1, ApiError, fetchJson, todayIso } from "../../lib/api";
+import { API_V1, ApiError, fetchJson, resolveConfiguredUrl, todayIso } from "../../lib/api";
 
 export interface DailyContentItem {
     title: string;
@@ -29,8 +29,10 @@ type RawDailyContent = {
     };
 };
 
-const DAILY_CONTENT_URL =
-    import.meta.env.VITE_DAILY_CONTENT_URL ?? `${API_V1}/content/daily`;
+const DAILY_CONTENT_URL = resolveConfiguredUrl(
+    import.meta.env.VITE_DAILY_CONTENT_URL,
+    `${API_V1}/content/daily`
+);
 
 const CACHE_KEY = "daily:islamContent:v2";
 

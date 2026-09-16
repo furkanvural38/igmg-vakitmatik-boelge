@@ -5,14 +5,19 @@
 // Ob ein Aufruf geklappt hat, steht im HTTP-Status; Fehler kommen als
 // application/problem+json.
 
-/**
- * Basis-URL der API. Konfigurierbar über VITE_API_BASE — der Fallback hält
- * bestehende Installationen am Laufen, wenn keine .env gesetzt ist.
- */
-export const API_BASE = (
-    import.meta.env.VITE_API_BASE ?? "https://igmg-namaz.synology.me:3838"
-).replace(/\/+$/, "");
+export const DEFAULT_API_BASE = "https://igmg-namaz.synology.me:3838";
 
+/**
+ * GitHub Actions setzt `VITE_*` auf `""`, wenn die Variable fehlt.
+ * `??` behandelt nur null/undefined — der leere String würde den Fallback
+ * aushebeln und relative URLs gegen GitHub Pages schicken.
+ */
+export function resolveConfiguredUrl(value: string | undefined, fallback: string): string {
+    const trimmed = (value ?? "").trim();
+    return (trimmed || fallback).replace(/\/+$/, "");
+}
+
+export const API_BASE = resolveConfiguredUrl(import.meta.env.VITE_API_BASE, DEFAULT_API_BASE);
 export const API_V1 = `${API_BASE}/api/v1`;
 
 export type PrayerKey = "fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha";
@@ -113,13 +118,14 @@ export class ApiError extends Error {
     }
 }
 
-function kindFromProblem(problem: ApiProblem | null, status: number): ProblemKind {
+export function classifyApiProblem(problem: ApiProblem | null, status: number): ProblemKind {
     const type = problem?.type;
     if (type) {
         const slug = type.substring(type.lastIndexOf("/") + 1) as ProblemKind;
         if (KNOWN_PROBLEM_KINDS.indexOf(slug) !== -1) return slug;
     }
-    if (status === 404) return "unknown-location";
+    // Nur JSON-Problemantworten der API, nicht HTML-404 von GitHub Pages.
+    if (status === 404) return problem ? "unknown-location" : "malformed-response";
     if (status >= 500) return "internal-error";
     return "unknown";
 }
@@ -136,13 +142,16 @@ function parseRetryAfter(res: Response): number | null {
 
 async function problemFromResponse(res: Response): Promise<ApiError> {
     let problem: ApiProblem | null = null;
-    try {
-        const body = await res.json();
-        if (body && typeof body === "object") problem = body as ApiProblem;
-    } catch {
-        /* Body war kein JSON – der Status reicht */
+    const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+    if (contentType.includes("json")) {
+        try {
+            const body = await res.json();
+            if (body && typeof body === "object") problem = body as ApiProblem;
+        } catch {
+            /* Deklariertes JSON war keins – der Status reicht */
+        }
     }
-    const kind = kindFromProblem(problem, res.status);
+    const kind = classifyApiProblem(problem, res.status);
     const message = problem?.detail ?? problem?.title ?? `HTTP ${res.status}`;
     return new ApiError(message, kind, res.status, {
         retryAfterMs: parseRetryAfter(res),
