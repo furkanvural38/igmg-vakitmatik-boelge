@@ -1,4 +1,6 @@
 // src/features/footerTicker/apiDailyContent.ts
+import { API_V1, ApiError, fetchJson, todayIso } from "../../lib/api";
+
 export interface DailyContentItem {
     title: string;
     text: string;
@@ -9,9 +11,15 @@ export interface DailyContentResult {
     items: DailyContentItem[];
 }
 
+/**
+ * Dieser Endpunkt behält als einziger den Umschlag mit data/success —
+ * die Gebetszeiten tun das nicht.
+ */
 type RawDailyContent = {
     success?: boolean;
+    message?: string | null;
     data?: {
+        dayOfYear?: number;
         verse?: string;
         verseSource?: string;
         hadith?: string;
@@ -22,33 +30,34 @@ type RawDailyContent = {
 };
 
 const DAILY_CONTENT_URL =
-    import.meta.env.VITE_DAILY_CONTENT_URL ??
-    "https://igmg-namaz.synology.me:3838/getIslamContent";
+    import.meta.env.VITE_DAILY_CONTENT_URL ?? `${API_V1}/content/daily`;
 
-const CACHE_KEY = "daily:islamContent:v1";
-const CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6h
-
-function now() { return Date.now(); }
+const CACHE_KEY = "daily:islamContent:v2";
 
 function readCache(): DailyContentResult | null {
     try {
         const raw = localStorage.getItem(CACHE_KEY);
         if (!raw) return null;
-        const { ts, payload } = JSON.parse(raw);
-        if (typeof ts !== "number" || !payload) return null;
-        if (now() - ts > CACHE_TTL_MS) return null;
+        const { day, payload } = JSON.parse(raw);
+        // Der Inhalt gilt pro Tag – ein TTL in Stunden würde über Mitternacht
+        // hinweg den Text von gestern zeigen.
+        if (day !== todayIso() || !payload?.items?.length) return null;
         return payload as DailyContentResult;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 }
 
 function writeCache(payload: DailyContentResult) {
     try {
-        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: now(), payload }));
-    } catch { /* ignore quota */ }
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ day: todayIso(), payload }));
+    } catch {
+        /* Quota ignorieren */
+    }
 }
 
-function isRawDailyContent(x: any): x is RawDailyContent {
-    return !!x && typeof x === "object" && "success" in x && "data" in x;
+function isRawDailyContent(x: unknown): x is RawDailyContent {
+    return !!x && typeof x === "object" && "data" in x;
 }
 
 function normalizeItem(
@@ -65,20 +74,6 @@ function normalizeItem(
         source: (source ?? "").trim() || undefined,
         imageKey: imageKey ?? "allah",
     };
-}
-
-async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), ms);
-    try {
-        return await fetch(url, {
-            signal: ctrl.signal,
-            headers: { Accept: "application/json" },
-            cache: "no-store",
-        });
-    } finally {
-        clearTimeout(to);
-    }
 }
 
 const DEFAULT_RESULT: DailyContentResult = {
@@ -101,25 +96,16 @@ const DEFAULT_RESULT: DailyContentResult = {
     ],
 };
 
-export async function fetchDailyIslamContent(): Promise<DailyContentResult | null> {
-    // 1) gültigen Cache liefern, wenn vorhanden
+export async function fetchDailyIslamContent(): Promise<DailyContentResult> {
+    // 1) Cache des heutigen Tages liefern, wenn vorhanden
     const cached = readCache();
     if (cached) return cached;
 
     try {
-        const res = await fetchWithTimeout(DAILY_CONTENT_URL, 8000);
-        if (!res.ok) {
-            console.error("Daily content API not ok", res.status);
-            // Fallback: kein Netz → Default
-            writeCache(DEFAULT_RESULT);
-            return DEFAULT_RESULT;
-        }
+        const json = await fetchJson<unknown>(DAILY_CONTENT_URL, 8000);
 
-        // Content-Type kann serverseitig falsch sein -> trotzdem json() versuchen
-        const json: unknown = await res.json();
-        if (!isRawDailyContent(json) || !json.success || !json.data) {
+        if (!isRawDailyContent(json) || !json.data) {
             console.error("Daily content format unexpected:", json);
-            writeCache(DEFAULT_RESULT);
             return DEFAULT_RESULT;
         }
 
@@ -131,18 +117,15 @@ export async function fetchDailyIslamContent(): Promise<DailyContentResult | nul
             normalizeItem("Dua", d.pray, d.praySource, "dua"),
         ].filter(Boolean) as DailyContentItem[];
 
-        // Wenn alles leer → Default
-        const result: DailyContentResult = { items: items.length ? items : DEFAULT_RESULT.items };
+        if (!items.length) return DEFAULT_RESULT;
 
+        const result: DailyContentResult = { items };
+        // Nur echte Inhalte cachen – sonst klebt der Platzhalter am Tag fest.
         writeCache(result);
         return result;
-    } catch (err: any) {
-        if (err?.name === "AbortError") {
-            console.error("Daily content timeout");
-        } else {
-            console.error("Error fetching daily content:", err);
-        }
-        writeCache(DEFAULT_RESULT);
+    } catch (err) {
+        const reason = err instanceof ApiError ? `${err.kind} (${err.status})` : err;
+        console.error("Daily content failed:", reason);
         return DEFAULT_RESULT;
     }
 }

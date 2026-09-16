@@ -1,7 +1,6 @@
 import { useMemo } from "react";
-import type {PrayerTimes} from "../../lib/api";
-
-type PrayerKey = "fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha";
+import type { PrayerKey, PrayerTimes } from "../../lib/api";
+import { PRAYER_ORDER } from "../../lib/api";
 
 function timeToMinutes(time: string): number {
     const [hours, minutes] = time.split(":").map(Number);
@@ -70,11 +69,9 @@ export function usePrayerTimeLogic(clock: Date, prayerTimes: PrayerTimes | null)
             };
         }
 
-        const order: PrayerKey[] = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
-
-        const times = order.map((key) => ({
+        const times = PRAYER_ORDER.map((key) => ({
             key,
-            minutes: timeToMinutes(prayerTimes[key]),
+            minutes: timeToMinutes(prayerTimes.times[key]),
         }));
 
         // aktuelle Zeit in Minuten & Sekunden seit Mitternacht

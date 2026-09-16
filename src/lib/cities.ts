@@ -1,5 +1,31 @@
 // src/lib/cities.ts
-const API_BASE = "https://igmg-namaz.synology.me:3838/";
+
+/**
+ * Die 17 kuratierten Slugs der API v1. Nur diese funktionieren unter
+ * /api/v1/cities/{slug}; alles andere müsste über /api/v1/locations/search laufen.
+ * `salzgitterBad` ist der einzige Slug, der nicht durchgehend klein geschrieben ist.
+ */
+export const curatedCitySlugs = [
+    "hannover",
+    "braunschweig",
+    "garbsen",
+    "laatzen",
+    "neustadt",
+    "peine",
+    "salzgitterBad",
+    "salzgitter",
+    "watenstedt",
+    "hildesheim",
+    "goslar",
+    "hameln",
+    "stadthagen",
+    "osterode",
+    "herzberg",
+    "magdeburg",
+    "wolfsburg",
+] as const;
+
+export type CuratedCitySlug = (typeof curatedCitySlugs)[number];
 
 export const logoKeys = {
     default: "default",
@@ -12,8 +38,8 @@ export type LogoKey = keyof typeof logoKeys;
 export interface CityConfig {
     mosqueName: string;
     weatherCityName: string;
-    prayerApiUrl: string;
-    excelFallbackSheet?: string;
+    /** Slug für /api/v1/cities/{slug} */
+    citySlug: CuratedCitySlug;
     logoKey?: LogoKey;
 }
 
@@ -22,127 +48,109 @@ export const cityConfigs = {
     hannover: {
         mosqueName: "HANNOVER ŞUBESİ AYASOFYA CÂMİ-İ",
         weatherCityName: "Hannover",
-        prayerApiUrl: `${API_BASE}hannover`,
-        excelFallbackSheet: "hannover",
+        citySlug: "hannover",
         logoKey: "igmg",
     },
     braunschweig: {
         mosqueName: "BRAUNSCHWEIG CAMİ",
         weatherCityName: "Braunschweig",
-        prayerApiUrl: `${API_BASE}braunschweig`,
-        excelFallbackSheet: "braunschweig",
+        citySlug: "braunschweig",
         logoKey: "igmg",
     },
     garbsen: {
         mosqueName: "GARBSEN ŞUBESİ EYÜP SULTAN CÂMİ-İ",
         weatherCityName: "Garbsen",
-        prayerApiUrl: `${API_BASE}garbsen`,
-        excelFallbackSheet: "garbsen",
+        citySlug: "garbsen",
         logoKey: "igmg",
     },
     laatzen: {
         mosqueName: "LAATZEN ŞUBESİ AKSA CÂMİ-İ",
         weatherCityName: "Laatzen",
-        prayerApiUrl: `${API_BASE}laatzen`,
-        excelFallbackSheet: "laatzen",
+        citySlug: "laatzen",
         logoKey: "igmg",
     },
     ahlem: {
         mosqueName: "AHLEMER KULTUR-UND BILDUNG E.V",
         weatherCityName: "Hannover",
-        prayerApiUrl: `${API_BASE}hannover`,
-        excelFallbackSheet: "hannover",
+        citySlug: "hannover",
         logoKey: "ahlem",
     },
     neustadt: {
         mosqueName: "NEUSTADT CAMİ",
         weatherCityName: "Neustadt am Rübenberge",
-        prayerApiUrl: `${API_BASE}neustadt`,
-        excelFallbackSheet: "neustadt",
+        citySlug: "neustadt",
         logoKey: "igmg",
     },
     peine: {
         mosqueName: "PEINE ŞUBESİ TAKVA CÂMİ-İ",
         weatherCityName: "Peine",
-        prayerApiUrl: `${API_BASE}peine`,
-        excelFallbackSheet: "peine",
+        citySlug: "peine",
         logoKey: "igmg",
     },
     salzgitterBad: {
         mosqueName: "SALZGITTER-BAD CAMİ",
         weatherCityName: "Salzgitter",
-        prayerApiUrl: `${API_BASE}salzgitterBad`,
-        excelFallbackSheet: "salzgitterBad",
+        citySlug: "salzgitterBad",
         logoKey: "igmg",
     },
     salzgitter: {
         mosqueName: "LEBENSTEDT ŞUBESİ SELİMİYE CÂMİ-İ",
         weatherCityName: "Salzgitter",
-        prayerApiUrl: `${API_BASE}salzgitter`,
-        excelFallbackSheet: "salzgitter",
+        citySlug: "salzgitter",
         logoKey: "igmg",
     },
     watenstedt: {
         mosqueName: "WATENSTEDT CAMİ",
         weatherCityName: "Salzgitter-Watenstedt",
-        prayerApiUrl: `${API_BASE}watenstedt`,
-        excelFallbackSheet: "watenstedt",
+        citySlug: "watenstedt",
         logoKey: "igmg",
     },
     hildesheim: {
         mosqueName: "HILDESHEIM CAMİ",
         weatherCityName: "Hildesheim",
-        prayerApiUrl: `${API_BASE}hildesheim`,
-        excelFallbackSheet: "hildesheim",
+        citySlug: "hildesheim",
         logoKey: "igmg",
     },
     goslar: {
         mosqueName: "GOSLAR CAMİ",
         weatherCityName: "Goslar",
-        prayerApiUrl: `${API_BASE}goslar`,
-        excelFallbackSheet: "goslar",
+        citySlug: "goslar",
         logoKey: "igmg",
     },
     hameln: {
         mosqueName: "HAMELN CAMİ",
         weatherCityName: "Hameln",
-        prayerApiUrl: `${API_BASE}hameln`,
-        excelFallbackSheet: "hameln",
+        citySlug: "hameln",
         logoKey: "igmg",
     },
     stadthagen: {
         mosqueName: "STADTHAGEN CAMİ",
         weatherCityName: "Stadthagen",
-        prayerApiUrl: `${API_BASE}stadthagen`,
-        excelFallbackSheet: "stadthagen",
+        citySlug: "stadthagen",
         logoKey: "igmg",
     },
     osterode: {
         mosqueName: "OSTERODE ŞUBESİ FATİH CÂMİ-İ",
         weatherCityName: "Osterode am Harz",
-        prayerApiUrl: `${API_BASE}osterode`,
-        excelFallbackSheet: "osterode",
+        citySlug: "osterode",
         logoKey: "igmg",
     },
     herzberg: {
         mosqueName: "HERZBERG CAMİ",
         weatherCityName: "Herzberg am Harz",
-        prayerApiUrl: `${API_BASE}herzberg`,
-        excelFallbackSheet: "herzberg",
+        citySlug: "herzberg",
         logoKey: "igmg",
     },
     magdeburg: {
         mosqueName: "MAGDEBURG CAMİ",
         weatherCityName: "Magdeburg",
-        prayerApiUrl: `${API_BASE}magdeburg`,
-        excelFallbackSheet: "magdeburg",
+        citySlug: "magdeburg",
         logoKey: "igmg",
     },
     wolfsburg: {
         mosqueName: "WOLFSBURG ŞUBESİ HASENE CÂMİ-İ",
         weatherCityName: "Wolfsburg",
-        prayerApiUrl: `${API_BASE}wolfsburg`,
-        excelFallbackSheet: "wolfsburg",
+        citySlug: "wolfsburg",
         logoKey: "igmg",
     },
 } as const satisfies Record<string, CityConfig>;
@@ -160,6 +168,7 @@ export const citySlugs: Record<string, CityKey> = {
     neustadt: "neustadt",
     peine: "peine",
     "salzgitter-bad": "salzgitterBad",
+    salzgitterbad: "salzgitterBad",
     salzgitter: "salzgitter",
     watenstedt: "watenstedt",
     hildesheim: "hildesheim",
@@ -174,8 +183,14 @@ export const citySlugs: Record<string, CityKey> = {
 
 export function resolveCity(input: string | null | undefined): CityKey | undefined {
     if (!input) return undefined;
-    const slug = input.trim().toLowerCase();
+    const raw = input.trim();
 
+    // Erst exakt prüfen – sonst würde der Key "salzgitterBad" am Kleinschreiben scheitern.
+    if (Object.prototype.hasOwnProperty.call(cityConfigs, raw)) {
+        return raw as CityKey;
+    }
+
+    const slug = raw.toLowerCase();
     if (Object.prototype.hasOwnProperty.call(cityConfigs, slug)) {
         return slug as CityKey;
     }

@@ -13,18 +13,13 @@ import { LuCloudSun } from "react-icons/lu";
 
 import { useChangeTitle } from "./useChangeTitle";
 import { WeatherCard } from "../weather/WeatherCard";
-import type { PrayerTimes } from "../../lib/api";
+import type { PrayerKey, PrayerTimes } from "../../lib/api";
+import { PRAYER_ORDER } from "../../lib/api";
 
 const GREEN = "#009972";
 const DANGER = "#ff3b30";
 
-export type PrayerKey =
-    | "fajr"
-    | "sunrise"
-    | "dhuhr"
-    | "asr"
-    | "maghrib"
-    | "isha";
+export type { PrayerKey };
 
 const ICONS: Record<PrayerKey, JSX.Element> = {
     fajr: <PiSunHorizonLight className="text-9xl mb-4" />,
@@ -230,28 +225,21 @@ const WeatherCardContainer = memo(function WeatherCardContainer({
 
 // ---- Hauptkomponente: kein Sekundentick mehr hier ----
 export function PrayerPanel(): JSX.Element {
-    const { prayerTimes, hijriDateLong } = useCity();
+    const { prayerTimes, hijriDate } = useCity();
     const titles = useChangeTitle();
 
-    const orderedKeys: PrayerKey[] = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+    const orderedKeys = PRAYER_ORDER;
 
     const timeMap: Record<PrayerKey, string> | null = useMemo(() => {
         if (!prayerTimes) return null;
-        return {
-            fajr: prayerTimes.fajr ?? "00:00",
-            sunrise: prayerTimes.sunrise ?? "00:00",
-            dhuhr: prayerTimes.dhuhr ?? "00:00",
-            asr: prayerTimes.asr ?? "00:00",
-            maghrib: prayerTimes.maghrib ?? "00:00",
-            isha: prayerTimes.isha ?? "00:00",
-        };
+        return { ...prayerTimes.times };
     }, [prayerTimes]);
 
     return (
         <div className="w-full flex flex-col items-stretch text-white select-none relative z-[1]">
             {/* 1. OBERER BLOCK: Datum / Uhr / Wetter */}
             <div className="flex flex-row items-center justify-between w-full px-10">
-                <TimeBar hijriDate={hijriDateLong} />
+                <TimeBar hijriDate={hijriDate} />
                 <WeatherCardContainer prayerTimes={prayerTimes} />
             </div>
 
@@ -267,7 +255,7 @@ export function PrayerPanel(): JSX.Element {
           gap-10
         "
             >
-                {!timeMap ? (
+                {!prayerTimes || !timeMap ? (
                     <div className="text-2xl text-neutral-400">Lade Gebetszeiten…</div>
                 ) : (
                     orderedKeys.map((key) => (
