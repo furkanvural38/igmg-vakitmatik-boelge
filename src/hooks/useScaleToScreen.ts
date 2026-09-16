@@ -1,50 +1,50 @@
 // src/hooks/useScaleToScreen.ts
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-const BASE_WIDTH = 3840;
-const BASE_HEIGHT = 2160;
+export const STAGE_WIDTH = 3840;
+export const STAGE_HEIGHT = 2160;
 
-export function useScaleToScreen() {
-    const [scale, setScale] = useState(1);
-    const [offsetX, setOffsetX] = useState(0);
-    const [offsetY, setOffsetY] = useState(0);
+interface StageTransform {
+    scale: number;
+    offsetX: number;
+    offsetY: number;
+}
 
-    useEffect(() => {
-        function update() {
-            const vw = window.innerWidth;
-            const vh = window.innerHeight;
+function measure(): StageTransform {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-            // wir skalieren proportional, aber nicht über die Bildschirmgröße hinaus
-            const scaleFactorWidth = vw / BASE_WIDTH;
-            const scaleFactorHeight = vh / BASE_HEIGHT;
-            const nextScale = Math.min(scaleFactorWidth, scaleFactorHeight);
-
-            // nach Skalierung die echte gerenderte Größe
-            const renderedWidth = BASE_WIDTH * nextScale;
-            const renderedHeight = BASE_HEIGHT * nextScale;
-
-            // zentrieren
-            const nextOffsetX = (vw - renderedWidth) / 2;
-            const nextOffsetY = (vh - renderedHeight) / 2;
-
-            setScale(nextScale);
-            setOffsetX(nextOffsetX);
-            setOffsetY(nextOffsetY);
-        }
-
-        // initial berechnen
-        update();
-
-        // bei Resize neu
-        window.addEventListener("resize", update);
-        return () => window.removeEventListener("resize", update);
-    }, []);
+    // Proportional einpassen (contain), nie verzerren.
+    const scale = Math.min(vw / STAGE_WIDTH, vh / STAGE_HEIGHT);
 
     return {
-        baseWidth: BASE_WIDTH,
-        baseHeight: BASE_HEIGHT,
         scale,
-        offsetX,
-        offsetY,
+        offsetX: (vw - STAGE_WIDTH * scale) / 2,
+        offsetY: (vh - STAGE_HEIGHT * scale) / 2,
     };
+}
+
+/**
+ * Skalierung und Zentrierung der Bühne.
+ *
+ * Ein State-Objekt statt drei einzelner States: das waren sonst drei
+ * Set-Aufrufe pro Resize. Lazy initialisiert, damit der erste Frame schon
+ * korrekt sitzt statt sichtbar von scale=1 zu springen.
+ */
+export function useStageScale(): StageTransform {
+    const [transform, setTransform] = useState<StageTransform>(measure);
+
+    const update = useCallback(() => setTransform(measure()), []);
+
+    useEffect(() => {
+        update();
+        window.addEventListener("resize", update);
+        window.addEventListener("orientationchange", update);
+        return () => {
+            window.removeEventListener("resize", update);
+            window.removeEventListener("orientationchange", update);
+        };
+    }, [update]);
+
+    return transform;
 }

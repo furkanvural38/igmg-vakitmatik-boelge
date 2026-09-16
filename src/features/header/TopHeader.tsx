@@ -1,54 +1,44 @@
-import { useCity } from "../../app/CityProvider";
+// src/features/header/TopHeader.tsx
+import { useCity } from "../../app/cityContext";
 import type { LogoKey } from "../../lib/cities";
 
 import IGMGLogo from "../../assets/ressources/igmg-logo.png";
 import AhlemLogo from "../../assets/ressources/ahlem-logo.png";
 
-const logoMap: Record<LogoKey, string> = {
+const LOGOS: Record<LogoKey, string> = {
     default: IGMGLogo,
     igmg: IGMGLogo,
     ahlem: AhlemLogo,
 };
 
+/**
+ * Kopfzeile mit Logo und Moscheename.
+ *
+ * Liegt fixed über der Bühne (siehe App.tsx). Das Logo ist bewusst höher als
+ * die Kopfleiste: die Logo-PNGs haben transparente Ränder, die sichtbare Marke
+ * sitzt dadurch optisch mittig. Früher stand hier ein Ternary mit zwei
+ * identischen Zweigen — die Absicht war nicht erkennbar, jetzt steht sie da.
+ */
+const HEADER_HEIGHT = 200;
+const LOGO_HEIGHT = 250;
+
 export function TopHeader() {
     const { config } = useCity();
-
-    const logoSrc = logoMap[config?.logoKey ?? "default"];
-    const isAhlemLogo = config?.logoKey === "ahlem";
+    const logoSrc = LOGOS[config?.logoKey ?? "default"];
 
     return (
         <header
-            className="
-                fixed
-                top-4
-                left-8
-                right-8
-                z-50
-                flex
-                items-center
-                justify-between
-                px-10
-                py-6
-                gap-8
-                glass-text
-                backdrop-blur-xl
-                bg-[rgba(10,10,15,0.45)]
-                border-b
-                border-[rgba(255,255,255,0.12)]
-                shadow-[0_10px_40px_rgba(0,0,0,0.6)]
-            "
+            className="glass-text fixed left-8 right-8 top-4 z-50 flex items-center justify-between gap-8 border-b border-[rgba(255,255,255,0.12)] bg-surface-strong px-10 py-6"
             style={{
-                height: "200px",
-                boxShadow:
-                    "inset 0 0 40px rgba(255,255,255,0.12), 0 30px 80px rgba(0,0,0,0.9)",
+                height: HEADER_HEIGHT,
+                boxShadow: "inset 0 0 40px rgba(255,255,255,0.12), 0 30px 80px rgba(0,0,0,0.9)",
                 borderRadius: "1.5rem",
             }}
         >
             <div
-                className="flex items-center justify-center"
+                className="flex flex-shrink-0 items-center justify-center"
                 style={{
-                    flex: "0 0 550px",
-                    height: "100%",
+                    flexBasis: 550,
                     filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.9))",
                 }}
             >
@@ -56,39 +46,23 @@ export function TopHeader() {
                     src={logoSrc}
                     alt={config?.mosqueName ?? "IGMG"}
                     className="object-contain"
-                    style={{
-                        height: isAhlemLogo ? "250px" : "250px",
-                    }}
+                    style={{ height: LOGO_HEIGHT }}
                 />
             </div>
 
-            <div
-                className="
-                    flex
-                    items-center
-                    justify-center
-                    uppercase
-                    text-center
-                    leading-snug
-                    flex-1
-                    text-white
-                "
+            <h1
+                className="flex w-full flex-1 items-center justify-center text-center uppercase text-white"
                 style={{
-                    height: "100%",
                     fontSize: "7rem",
                     fontWeight: 700,
                     letterSpacing: ".08em",
-                    lineHeight: "1.1",
-                    textShadow:
-                        "0 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.8)",
+                    lineHeight: 1.1,
+                    textShadow: "0 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(0,0,0,0.8)",
                     filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.9))",
-                    textAlign: "center",
-                    width: "100%",
-                    color: "white",
                 }}
             >
                 {config?.mosqueName ?? "—"}
-            </div>
+            </h1>
         </header>
     );
 }

@@ -5,7 +5,14 @@
 // Ob ein Aufruf geklappt hat, steht im HTTP-Status; Fehler kommen als
 // application/problem+json.
 
-export const API_BASE = "https://igmg-namaz.synology.me:3838";
+/**
+ * Basis-URL der API. Konfigurierbar über VITE_API_BASE — der Fallback hält
+ * bestehende Installationen am Laufen, wenn keine .env gesetzt ist.
+ */
+export const API_BASE = (
+    import.meta.env.VITE_API_BASE ?? "https://igmg-namaz.synology.me:3838"
+).replace(/\/+$/, "");
+
 export const API_V1 = `${API_BASE}/api/v1`;
 
 export type PrayerKey = "fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha";
@@ -155,9 +162,20 @@ async function problemFromResponse(res: Response): Promise<ApiError> {
  * passende Cache-Control-Header (Gebetszeiten laufen um Mitternacht in der
  * Zeitzone der Stadt ab, der Tagesinhalt um 23:30).
  */
-export async function fetchJson<T = unknown>(url: string, timeoutMs = 8000): Promise<T> {
+export async function fetchJson<T = unknown>(
+    url: string,
+    timeoutMs = 8000,
+    externalSignal?: AbortSignal
+): Promise<T> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+
+    // Abbruch von außen (City-Wechsel) auf denselben Controller spiegeln.
+    const onExternalAbort = () => ctrl.abort();
+    if (externalSignal) {
+        if (externalSignal.aborted) ctrl.abort();
+        else externalSignal.addEventListener("abort", onExternalAbort);
+    }
 
     let res: Response;
     try {
@@ -173,6 +191,7 @@ export async function fetchJson<T = unknown>(url: string, timeoutMs = 8000): Pro
         throw new ApiError(cause?.message ?? "Netzwerkfehler", "network", 0);
     } finally {
         clearTimeout(timer);
+        externalSignal?.removeEventListener("abort", onExternalAbort);
     }
 
     if (!res.ok) throw await problemFromResponse(res);
@@ -253,19 +272,6 @@ export async function fetchPrayerTimes(citySlug: string, date?: string): Promise
         }
         throw err;
     }
-}
-
-/**
- * Gebetszeiten zu einem Treffer aus /api/v1/locations/search.
- * Antwortet exakt wie /cities/{slug}.
- */
-export async function fetchPrayerTimesByLocationId(
-    publicId: string,
-    date?: string
-): Promise<PrayerTimes> {
-    const base = `${API_V1}/locations/${encodeURIComponent(publicId)}/prayer-times`;
-    const url = date ? `${base}?date=${encodeURIComponent(date)}` : base;
-    return parsePrayerTimes(await fetchJson(url), publicId);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,14 +384,31 @@ export function describeApiError(err: ApiError): string {
 // Wetter (unverändert, fremde API)
 // ---------------------------------------------------------------------------
 
-export async function fetchWeather(cityName: string): Promise<WeatherData | null> {
-    const OPENWEATHER_API_KEY = "6847fff1ba1440395c9624c98a44f3f0";
+const OPENWEATHER_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY ?? "";
+
+/**
+ * Wetter ist Beiwerk: Fehler werden geschluckt und als `null` gemeldet, damit
+ * eine tote Fremd-API nie die Gebetszeiten blockiert.
+ *
+ * `signal` reicht den AbortController des Aufrufers durch — vorher erzeugte der
+ * WeatherProvider einen Controller, den niemand an fetch weitergab; der gesamte
+ * Abbruchpfad war toter Code.
+ */
+export async function fetchWeather(
+    cityName: string,
+    signal?: AbortSignal
+): Promise<WeatherData | null> {
+    if (!OPENWEATHER_API_KEY) {
+        console.warn("VITE_OPENWEATHER_API_KEY fehlt – Wetterkarte bleibt leer.");
+        return null;
+    }
+
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
         cityName
     )}&units=metric&lang=de&appid=${OPENWEATHER_API_KEY}`;
 
     try {
-        const json = await fetchJson<WeatherData>(url, 8000);
+        const json = await fetchJson<WeatherData>(url, 8000, signal);
         if (!json?.main?.temp) {
             console.error("Weather API returned invalid payload");
             return null;

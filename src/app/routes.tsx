@@ -1,68 +1,39 @@
 // src/app/routes.tsx
 import { createHashRouter, redirect } from "react-router-dom";
-import { CityProvider } from "./CityProvider";
-import App from "./App";
-import { WeatherProvider } from "../features/weather/WeatherProvider";
+import { CityAppWrapper } from "./CityAppWrapper";
+import { StatusScreen } from "./StatusScreen";
 
-function CityAppWrapper() {
-    return (
-        <CityProvider>
-            <WeatherProvider>
-                <App />
-            </WeatherProvider>
-        </CityProvider>
-    );
-}
+/** Wird angesteuert, wenn keine Stadt in der URL steht. */
+const DEFAULT_CITY = "hannover";
 
-const routes = [
+// HashRouter, weil die Anzeige unter QtWebEngine/Anthias ohne History-Server läuft.
+export const router = createHashRouter([
     {
         path: "/:cityKey",
         element: <CityAppWrapper />,
         errorElement: (
-            <div
-                style={{
-                    color: "white",
-                    backgroundColor: "black",
-                    height: "100vh",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "2rem",
-                    textAlign: "center",
-                    padding: "2rem",
-                }}
-            >
-                Fehler beim Routen. Bitte eine gültige Stadt-URL aufrufen.
-            </div>
+            <StatusScreen
+                tone="error"
+                title="Fehler beim Routen"
+                detail="Bitte eine gültige Stadt-URL aufrufen."
+            />
         ),
     },
     {
         path: "/",
-        loader: () => redirect("/hannover"),
+        loader: () => redirect(`/${DEFAULT_CITY}`),
     },
     {
         path: "*",
         element: (
-            <div
-                style={{
-                    color: "white",
-                    backgroundColor: "black",
-                    height: "100vh",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "2rem",
-                    flexDirection: "column",
-                    textAlign: "center",
-                }}
-            >
-                <div>Bitte Stadt-URL aufrufen, z.&nbsp;B.</div>
-                <div className="font-mono mt-4 text-green-400">/hannover</div>
-                <div className="font-mono text-green-400">/braunschweig</div>
-            </div>
+            <StatusScreen
+                title="Bitte Stadt-URL aufrufen"
+                detail={
+                    <span className="font-mono text-brand">
+                        /hannover · /braunschweig · /wolfsburg
+                    </span>
+                }
+            />
         ),
     },
-];
-
-// Fester HashRouter für QtWebEngine/Anthias
-export const router = createHashRouter(routes);
+]);

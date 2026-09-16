@@ -27,13 +27,7 @@ export const curatedCitySlugs = [
 
 export type CuratedCitySlug = (typeof curatedCitySlugs)[number];
 
-export const logoKeys = {
-    default: "default",
-    igmg: "igmg",
-    ahlem: "ahlem",
-} as const;
-
-export type LogoKey = keyof typeof logoKeys;
+export type LogoKey = "default" | "igmg" | "ahlem";
 
 export interface CityConfig {
     mosqueName: string;
@@ -156,7 +150,6 @@ export const cityConfigs = {
 } as const satisfies Record<string, CityConfig>;
 
 export type CityKey = keyof typeof cityConfigs;
-export const cityList = Object.keys(cityConfigs) as CityKey[];
 
 // URL-freundliche Slugs -> Keys
 export const citySlugs: Record<string, CityKey> = {
@@ -181,23 +174,20 @@ export const citySlugs: Record<string, CityKey> = {
     wolfsburg: "wolfsburg",
 };
 
+const has = (obj: object, key: string) => Object.prototype.hasOwnProperty.call(obj, key);
+
 export function resolveCity(input: string | null | undefined): CityKey | undefined {
     if (!input) return undefined;
     const raw = input.trim();
+    if (!raw) return undefined;
 
     // Erst exakt prüfen – sonst würde der Key "salzgitterBad" am Kleinschreiben scheitern.
-    if (Object.prototype.hasOwnProperty.call(cityConfigs, raw)) {
-        return raw as CityKey;
-    }
+    if (has(cityConfigs, raw)) return raw as CityKey;
 
     const slug = raw.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(cityConfigs, slug)) {
-        return slug as CityKey;
-    }
+    if (has(cityConfigs, slug)) return slug as CityKey;
 
-    return citySlugs[slug];
-}
-
-export function isCityKey(x: string): x is CityKey {
-    return Object.prototype.hasOwnProperty.call(cityConfigs, x);
+    // hasOwnProperty auch hier: ein Aufruf von /__proto__ oder /constructor
+    // hätte sonst Object.prototype zurückgegeben – typisiert als CityKey.
+    return has(citySlugs, slug) ? citySlugs[slug] : undefined;
 }

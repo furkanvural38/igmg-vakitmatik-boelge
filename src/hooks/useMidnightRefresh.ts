@@ -1,31 +1,40 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
- * Führt `callback` exakt bei Tageswechsel aus (lokale Zeit).
- * Kein Sekundentick. Plant sich nach Ausführung neu.
+ * Führt `callback` beim lokalen Tageswechsel aus und plant sich danach neu.
+ *
+ * Der Callback liegt in einer Ref: sonst würde jede neue Funktionsidentität den
+ * Effekt neu aufsetzen und den Timer zurücksetzen — bei einem Timer, der bis zu
+ * 24 Stunden läuft, kann er so beliebig oft verschoben werden.
  */
 export function useMidnightRefresh(callback: () => void) {
+    const callbackRef = useRef(callback);
+
     useEffect(() => {
-        let timeoutId: number | null = null;
+        callbackRef.current = callback;
+    }, [callback]);
+
+    useEffect(() => {
+        let timeoutId: number | undefined;
 
         const scheduleNextMidnight = () => {
             const now = new Date();
             const next = new Date(now);
-            // nächste lokale Mitternacht
-            next.setHours(24, 0, 0, 0);
+            next.setHours(24, 0, 0, 0); // nächste lokale Mitternacht
 
-            const delay = Math.max(0, next.getTime() - now.getTime());
+            // Eine Sekunde Puffer: exakt auf 00:00:00 zu feuern trifft gelegentlich
+            // noch den Vortag, wenn der Timer minimal zu früh auslöst.
+            const delay = Math.max(1_000, next.getTime() - now.getTime() + 1_000);
+
             timeoutId = window.setTimeout(() => {
-                callback();
-                scheduleNextMidnight(); // nach dem Refresh erneut planen
+                callbackRef.current();
+                scheduleNextMidnight();
             }, delay);
         };
 
         scheduleNextMidnight();
         return () => {
-            if (timeoutId != null) {
-                clearTimeout(timeoutId);
-            }
+            if (timeoutId !== undefined) clearTimeout(timeoutId);
         };
-    }, [callback]);
+    }, []);
 }

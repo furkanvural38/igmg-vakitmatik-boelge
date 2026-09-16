@@ -1,54 +1,32 @@
-import React from "react";
-import { useScaleToScreen } from "../hooks/useScaleToScreen";
+// src/app/AppShell.tsx
+import type { ReactNode } from "react";
+import { useStageScale, STAGE_WIDTH, STAGE_HEIGHT } from "../hooks/useScaleToScreen";
 
-type AppShellProps = {
-    children: React.ReactNode;
-};
-
-export function AppShell({ children }: AppShellProps) {
-    const { baseWidth, baseHeight, scale, offsetX, offsetY } = useScaleToScreen();
+/**
+ * Feste Bühne von 3840×2160, proportional auf den tatsächlichen Bildschirm
+ * skaliert.
+ *
+ * Für ein Kiosk-Display ist das die richtige Entscheidung: alle Größen sind
+ * absolut und damit vorhersagbar, statt über Breakpoints zu laufen, die
+ * niemand auf 18 Geräten durchtesten kann.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+    const { scale, offsetX, offsetY } = useStageScale();
 
     return (
-        <div
-            className="fixed inset-0 flex items-center justify-center overflow-hidden text-white"
-            style={{
-                backgroundColor: "#000", // außen bleibt schwarz
-            }}
-        >
-            {/* Skaliertes App-Fenster */}
+        <div className="fixed inset-0 overflow-hidden bg-black text-white">
             <div
+                className="absolute select-none"
                 style={{
-                    position: "absolute",
-                    width: baseWidth,
-                    height: baseHeight,
+                    width: STAGE_WIDTH,
+                    height: STAGE_HEIGHT,
                     left: `${offsetX}px`,
                     top: `${offsetY}px`,
                     transform: `scale(${scale})`,
                     transformOrigin: "top left",
                 }}
-                className="select-none relative"
             >
-                {/* === Hintergrundbild hinter allem === */}
-                <div
-                    className="absolute inset-0 -z-10"
-                    style={{
-                        backgroundSize: "cover",
-                        backgroundPosition: "center center",
-                        backgroundRepeat: "no-repeat",
-                    }}
-                />
-
-                {/* === Deine App-Inhalte (Header, Center, Footer) === */}
-                <div
-                    className="relative w-full h-full"
-                    style={{
-                        // du kannst das leicht abdunkeln falls Text schwer lesbar ist:
-                        // backgroundColor: "rgba(0,0,0,0.35)",
-                        backgroundColor: "transparent",
-                    }}
-                >
-                    {children}
-                </div>
+                {children}
             </div>
         </div>
     );
