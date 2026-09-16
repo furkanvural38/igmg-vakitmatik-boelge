@@ -61,6 +61,8 @@ export const PrayerTile = memo(function PrayerTile({
     progressPercentage = 0,
 }: PrayerTileProps) {
     const textClass = active ? "text-white" : "text-muted";
+    // Der Balken stellt die Restzeit dar, nicht den Fortschritt.
+    const remainingPercentage = Math.min(100, Math.max(0, 100 - progressPercentage));
 
     return (
         <div
@@ -79,21 +81,25 @@ export const PrayerTile = memo(function PrayerTile({
                 <div className="absolute -top-44 left-1/2 z-[5] w-full -translate-x-1/2 px-2 text-white">
                     <div className="mb-4 w-full text-center text-8xl tabular">{remainingLabel}</div>
 
+                    {/* Der Balken zeigt die VERBLEIBENDE Zeit.
+                        Vorher war Grau das geformte Element (eigene runde Kappe)
+                        und wuchs nach rechts – es las sich als "Grau wächst".
+                        Jetzt ist Grau nur noch die ruhende Bahn, und der farbige
+                        Balken ist die Pille, die von links her aufgezehrt wird und
+                        an beiden Enden rund bleibt. */}
                     <div
-                        className={`glass-text relative h-8 w-full overflow-hidden rounded-3xl ${
-                            endingSoon ? "bg-danger" : "bg-brand"
-                        }`}
+                        className="glass-text relative h-8 w-full overflow-hidden rounded-full bg-[#4b4b4b]"
                         role="progressbar"
-                        aria-valuenow={progressPercentage}
+                        aria-valuenow={remainingPercentage}
                         aria-valuemin={0}
                         aria-valuemax={100}
-                        aria-label={`Fortschritt ${PRAYER_LABELS[prayerKey]}`}
+                        aria-label={`Verbleibende Zeit ${PRAYER_LABELS[prayerKey]}`}
                     >
-                        {/* Graue Füllung wächst, die farbige Restfläche schrumpft:
-                            der Balken zeigt die verbleibende Zeit, nicht die verstrichene. */}
                         <div
-                            className="h-full rounded-3xl bg-[#4b4b4b]"
-                            style={{ width: `${progressPercentage}%` }}
+                            className={`absolute inset-y-0 right-0 rounded-full transition-[width] duration-700 ease-linear ${
+                                endingSoon ? "bg-danger" : "bg-brand"
+                            }`}
+                            style={{ width: `${remainingPercentage}%` }}
                         />
                     </div>
                 </div>

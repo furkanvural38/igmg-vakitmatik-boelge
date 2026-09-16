@@ -28,10 +28,17 @@ body {
     -webkit-text-size-adjust: 100%;
 }
 
-/* Ziffern gleich breit laufen lassen. Ohne das springt die Uhr bei jedem
-   Sekundenwechsel um ein paar Pixel, weil proportionale Ziffern unterschiedlich
-   breit sind — auf 512px Schriftgröße ist das deutlich sichtbar. */
+/* Alles Numerische: Ziffern muessen gleich breit laufen, sonst wandert die
+   Uhr bei jedem Sekundenwechsel sichtbar hin und her.
+
+   font-variant-numeric allein reicht NICHT: bei "ui-sans-serif"/"system-ui"
+   wird das tnum-Feature nicht angewandt (nachgemessen: 23 px Unterschied
+   zwischen "11" und "44"). Deshalb zusaetzlich ein Schriftstack, dessen
+   Ziffern schon im Design gleich breit sind — Arial, Liberation Sans und
+   DejaVu Sans. Das entspricht dem, was die Uhr vor der Token-Umstellung
+   ueber das generische "sans-serif" bekommen hat. */
 .tabular {
+    font-family: theme('fontFamily.tabular');
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
 }
@@ -141,18 +148,38 @@ body {
 .marquee-viewport {
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    /* Standard ist Ausrichtung nach oben. Zentriert wird NUR, wenn der Text
+       ohnehin passt: bei Ueberlauf schneidet justify-content:center oben und
+       unten gleichzeitig ab, der Text beginnt dann optisch mitten im Satz. */
+    justify-content: flex-start;
+}
+
+.marquee-viewport[data-overflow="false"] {
+    justify-content: center;
 }
 
 .marquee-content {
     transform: translate3d(0, 0, 0);
+
+    /* Entscheidend: als Flex-Item in einem Container fester Hoehe wuerde der
+       Inhalt sonst auf Viewport-Hoehe zusammengestaucht. Die Messung ergaebe
+       dann 0 px Ueberlauf und es wuerde nie gescrollt — der Text bliebe
+       abgeschnitten stehen. */
+    flex-shrink: 0;
 }
 
 /* will-change erst setzen, wenn wirklich animiert wird. */
 .marquee-running {
     animation-name: vertical-marquee;
-    animation-duration: var(--marquee-duration, 30s);
+    animation-duration: var(--marquee-duration, 20s);
     animation-timing-function: linear;
-    animation-iteration-count: infinite;
+    /* Genau ein Durchlauf pro Inhalt. Das Weiterschalten haengt am
+       animationend-Ereignis, damit nie mitten im Text gewechselt wird. */
+    animation-iteration-count: 1;
+    animation-fill-mode: both;
     will-change: transform;
 }
 
@@ -165,6 +192,7 @@ body {
 /* === Bewegung reduzieren ============================================ */
 
 @media (prefers-reduced-motion: reduce) {
+    /* Nur dekorative Bewegung abschalten. Das Marquee bleibt: es macht Text
+       zugaenglich, der sonst abgeschnitten waere — funktionale Bewegung. */
     .glass-animate-in { animation: none; }
-    .marquee-running  { animation-duration: 0s; }
 }

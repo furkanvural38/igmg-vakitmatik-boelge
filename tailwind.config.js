@@ -48,6 +48,18 @@ export default {
                     "ui-sans-serif", "system-ui", "Segoe UI", "Roboto",
                     "Noto Sans", "DejaVu Sans", "Liberation Sans", "Arial", "sans-serif",
                 ],
+                // Stack fuer alles Numerische (Uhr, Gebetszeiten, Countdown, Datum).
+                //
+                // Nachgemessen: bei "ui-sans-serif"/"system-ui" greift
+                // font-variant-numeric: tabular-nums NICHT - die Ziffernpaare
+                // "11" und "44" unterscheiden sich dort um 23 px (auf der 4K-Buehne
+                // ~128 px), die Uhr wandert also bei jedem Sekundenwechsel.
+                // Arial, Liberation Sans und DejaVu Sans haben von Haus aus
+                // gleich breite Ziffern - Spanne 0. Genau diese Schriften lagen
+                // vorher hinter dem generischen "sans-serif" der Uhr.
+                tabular: [
+                    "Arial", "Helvetica", "Liberation Sans", "DejaVu Sans", "sans-serif",
+                ],
             },
             fontSize: {
                 // Feste Bühnengrößen (3840×2160) – die Stage skaliert proportional.

@@ -1,5 +1,5 @@
 // src/features/footerTicker/FooterTicker.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCity } from "../../app/cityContext";
 
 import AllahImg from "../../assets/ressources/ALLAH-image.png";
@@ -12,93 +12,141 @@ const IMAGES: Record<string, string> = {
     dua: DuaImg,
 };
 
-/** Anzeigedauer pro Inhalt (Âyet / Hadis / Dua). */
-const ITEM_DURATION_MS = 20_000;
+/** Lesegeschwindigkeit des Marquees. */
+const SCROLL_SPEED_PX_PER_SEC = 40;
+/** Anteil der Laufzeit, der oben bzw. unten als Lesepause stehen bleibt. */
+const HOLD_FRACTION = 0.1;
+/** Untergrenze, damit knapp ueberlaufender Text nicht vorbeihuscht. */
+const MIN_SCROLL_MS = 8_000;
+/** Anzeigedauer fuer Inhalte, die ohne Scrollen passen. */
+const STATIC_DURATION_MS = 20_000;
+/** Darunter ist der Ueberlauf nur Rundungsrauschen. */
+const OVERFLOW_THRESHOLD_PX = 4;
+/** Reserve, falls animationend ausbleibt. */
+const ANIMATION_END_GRACE_MS = 750;
 
-// Marquee-Parameter
-const SPEED_PX_PER_SEC = 40;
-const TOP_BOTTOM_PAUSE_FRAC = 0.1;
-const MIN_DURATION_SEC = 8;
-/** Darunter lohnt das Scrollen nicht – der Text passt praktisch schon. */
-const DIST_THRESHOLD_PX = 30;
-
+/**
+ * Ayet / Hadis / Dua im Wechsel, bei langem Text mit vertikalem Marquee.
+ *
+ * Der Takt haengt an der Lesezeit, nicht an einem festen Intervall: jeder
+ * Inhalt laeuft genau einen Durchlauf und schaltet erst danach weiter. Vorher
+ * liefen ein 20-Sekunden-Timer und eine endlos wiederholende Animation
+ * unabhaengig nebeneinander - je nach Textlaenge wurde entweder mitten im Satz
+ * umgeschaltet oder der Text sprang waehrend der Anzeige zurueck an den Anfang.
+ */
 export function FooterTicker() {
     const { dailyContent } = useCity();
     const items = useMemo(() => dailyContent?.items ?? [], [dailyContent]);
-    const [index, setIndex] = useState(0);
 
-    // Länge über eine Ref, damit der Intervall-Effekt nicht bei jedem
-    // Inhaltswechsel neu aufgesetzt wird (und der Ticker dabei auf 0 springt).
-    const itemCountRef = useRef(items.length);
-    itemCountRef.current = items.length;
+    // Laeuft frei hoch, der Index wird erst beim Lesen umgebrochen. Dadurch
+    // braucht das Weiterschalten die Anzahl der Inhalte nicht zu kennen.
+    const [cycle, setCycle] = useState(0);
+    const activeItem = items.length > 0 ? items[cycle % items.length] : null;
 
-    useEffect(() => {
-        const id = window.setInterval(() => {
-            const count = itemCountRef.current;
-            setIndex((prev) => (count > 0 ? (prev + 1) % count : 0));
-        }, ITEM_DURATION_MS);
-        return () => clearInterval(id);
-    }, []);
-
-    const activeItem = items.length > 0 ? items[index % items.length] : null;
+    const advance = useCallback(() => setCycle((c) => c + 1), []);
 
     const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
 
-    // Reines CSS-Marquee: hier wird nur gemessen und die Distanz als CSS-Variable
-    // gesetzt. Das Scrollen selbst läuft im Compositor, nicht im Mainthread.
-    useEffect(() => {
+    // useLayoutEffect: gemessen und ausgerichtet wird vor dem ersten Paint,
+    // sonst blitzt ein falsch positionierter Text auf.
+    useLayoutEffect(() => {
         const viewport = viewportRef.current;
         const content = contentRef.current;
-        if (!viewport || !content) return;
+        if (!viewport || !content || !activeItem) return;
 
-        const enableAnimation = (distance: number) => {
-            const travelSec = distance / SPEED_PX_PER_SEC;
-            const durationSec = Math.max(
-                MIN_DURATION_SEC,
-                travelSec / (1 - 2 * TOP_BOTTOM_PAUSE_FRAC)
-            );
+        let disposed = false;
+        let advanced = false;
+        let advanceTimer: number | undefined;
+        let appliedDistance = -1;
 
-            content.style.setProperty("--scroll-distance", `${distance}px`);
-            content.style.setProperty("--marquee-duration", `${durationSec}s`);
-            content.style.removeProperty("animation-name");
-            content.style.removeProperty("transform");
-
-            // Animation sauber neu starten: Klasse ab, Reflow erzwingen, Klasse dran.
-            content.classList.remove("marquee-running");
-            void content.offsetHeight;
-            content.classList.add("marquee-running");
+        const clearAdvanceTimer = () => {
+            if (advanceTimer !== undefined) {
+                clearTimeout(advanceTimer);
+                advanceTimer = undefined;
+            }
         };
 
-        const disableAnimation = () => {
+        /** Genau einmal pro Durchlauf weiterschalten - per Event oder per Timer. */
+        const advanceOnce = () => {
+            if (disposed || advanced) return;
+            advanced = true;
+            advance();
+        };
+
+        const stopScrolling = () => {
             content.classList.remove("marquee-running");
             content.style.removeProperty("--scroll-distance");
             content.style.removeProperty("--marquee-duration");
-            content.style.animationName = "none";
-            content.style.transform = "translate3d(0,0,0)";
         };
 
-        const measureAndApply = () => {
-            // getBoundingClientRect ist robuster als scrollHeight/clientHeight,
-            // weil die Bühne skaliert ist.
-            const distance = Math.max(
-                0,
-                Math.round(
-                    content.getBoundingClientRect().height - viewport.getBoundingClientRect().height
-                )
-            );
+        const apply = () => {
+            if (disposed) return;
 
-            if (distance <= DIST_THRESHOLD_PX) disableAnimation();
-            else enableAnimation(distance);
+            // scrollHeight/clientHeight sind Layout-Werte in CSS-Pixeln.
+            // getBoundingClientRect() waere hier falsch: die Buehne ist per
+            // transform: scale() verkleinert, die Rechteckmasse kaemen also um
+            // den Skalierungsfaktor zu klein zurueck (bei 4K auf Full-HD ein
+            // Drittel) - die Animation wuerde nur einen Bruchteil der noetigen
+            // Strecke fahren und den Text abgeschnitten stehen lassen.
+            const distance = Math.max(0, content.scrollHeight - viewport.clientHeight);
+
+            // Ohne diese Schranke startet jeder ResizeObserver-Aufschlag die
+            // Animation neu und der Text ruckt zurueck an den Anfang.
+            if (distance === appliedDistance) return;
+            appliedDistance = distance;
+            clearAdvanceTimer();
+
+            if (distance <= OVERFLOW_THRESHOLD_PX) {
+                viewport.dataset.overflow = "false";
+                stopScrolling();
+                advanceTimer = window.setTimeout(advanceOnce, STATIC_DURATION_MS);
+                return;
+            }
+
+            viewport.dataset.overflow = "true";
+
+            const travelMs = (distance / SCROLL_SPEED_PX_PER_SEC) * 1_000;
+            const durationMs = Math.max(MIN_SCROLL_MS, travelMs / (1 - 2 * HOLD_FRACTION));
+
+            content.style.setProperty("--scroll-distance", distance + "px");
+            content.style.setProperty("--marquee-duration", Math.round(durationMs) + "ms");
+
+            // Deterministischer Neustart: Klasse ab, Reflow erzwingen, Klasse dran.
+            content.classList.remove("marquee-running");
+            void content.offsetHeight;
+            content.classList.add("marquee-running");
+
+            // Sicherheitsnetz, falls animationend nicht kommt (unterdrueckte
+            // Animationen, Tab im Hintergrund) - sonst bliebe der Ticker stehen.
+            advanceTimer = window.setTimeout(advanceOnce, durationMs + ANIMATION_END_GRACE_MS);
         };
 
-        const observer = new ResizeObserver(measureAndApply);
+        const onAnimationEnd = (event: AnimationEvent) => {
+            // Nur der Durchlauf des Inhalts zaehlt, nicht die Einblend-Animation
+            // der Fusskarte, die nach oben durchblubbert.
+            if (event.target !== content) return;
+            advanceOnce();
+        };
+        content.addEventListener("animationend", onAnimationEnd);
+
+        const observer = new ResizeObserver(apply);
         observer.observe(viewport);
         observer.observe(content);
-        measureAndApply();
 
-        return () => observer.disconnect();
-    }, [activeItem]);
+        apply();
+        // Schriften koennen nach dem ersten Layout noch die Zeilenumbrueche und
+        // damit die Hoehe veraendern.
+        document.fonts?.ready.then(apply).catch(() => {});
+
+        return () => {
+            disposed = true;
+            clearAdvanceTimer();
+            observer.disconnect();
+            content.removeEventListener("animationend", onAnimationEnd);
+            stopScrolling();
+        };
+    }, [cycle, activeItem, advance]);
 
     const image = activeItem ? IMAGES[activeItem.imageKey] : undefined;
 
@@ -112,7 +160,7 @@ export function FooterTicker() {
         >
             {!activeItem ? (
                 <div className="flex items-center pl-8 text-[4rem] font-light leading-[1.2] text-white">
-                    Lade islamische Inhalte…
+                    Lade islamische Inhalte...
                 </div>
             ) : (
                 <>
@@ -126,12 +174,14 @@ export function FooterTicker() {
                         )}
                     </div>
 
-                    <div
-                        ref={viewportRef}
-                        className="marquee-viewport flex h-[25rem] flex-grow items-center justify-center overflow-hidden"
-                    >
+                    {/* Ausrichtung und Ueberlauf regelt .marquee-viewport in der CSS -
+                        bewusst nicht per Tailwind, damit justify-content nicht an
+                        zwei Stellen gesetzt wird. */}
+                    <div ref={viewportRef} className="marquee-viewport h-[25rem] flex-grow">
                         <div
-                            key={activeItem.title} // Wechsel des Inhalts startet die Animation neu
+                            // Neuer Knoten pro Durchlauf: garantiert einen sauberen
+                            // Start ohne Rest-Transform der vorigen Animation.
+                            key={cycle}
                             ref={contentRef}
                             className="marquee-content flex w-full max-w-full flex-col gap-y-8 text-white"
                         >
@@ -140,7 +190,7 @@ export function FooterTicker() {
                             </div>
 
                             {activeItem.source ? (
-                                <div className="self-end text-right text-[5rem] leading-[1.2] text-white">
+                                <div className="self-end pb-10 text-right text-[5rem] leading-[1.2] text-white">
                                     {activeItem.source}
                                 </div>
                             ) : null}

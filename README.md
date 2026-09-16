@@ -123,6 +123,28 @@ Die aktive Kachel warnt in den letzten **15 Minuten** des laufenden Fensters
 (`WARN_BEFORE_NEXT_MINUTES`). Früher war die Schwelle prozentual, wodurch dieselbe
 Farbe je nach Fensterlänge 9 bis 30 Minuten bedeutete.
 
+### Fußzeilen-Ticker
+
+Âyet, Hadis und Dua wechseln sich ab; passt ein Text nicht in die Karte, wird er
+vertikal durchgescrollt. Der Takt hängt an der Lesezeit, nicht an einem festen
+Intervall: jeder Inhalt läuft **genau einen** Durchlauf (10 % Pause oben,
+Fahrt, 10 % Pause unten) und schaltet erst am `animationend` weiter. Ein
+Sicherheitstimer greift, falls das Ereignis ausbleibt.
+
+Drei Fehler, die das vorher unmöglich machten:
+
+| Symptom | Ursache |
+|---|---|
+| Text abgeschnitten | `.marquee-content` wurde als Flex-Item auf Viewport-Höhe gestaucht → gemessener Überlauf 0 px → es wurde nie gescrollt |
+| Text abgeschnitten | Gemessen wurde mit `getBoundingClientRect()`, also **nach** der Bühnen-Skalierung – die Strecke fiel um den Skalierungsfaktor zu klein aus |
+| Scrollt mitten im Satz los | Der Viewport war `justify-content: center`; bei Überlauf schneidet das oben **und** unten ab, der Anfang lag schon außerhalb |
+| Sprung zurück an den Anfang | Fester 20-s-Timer und `animation-iteration-count: infinite` liefen unabhängig voneinander |
+
+Gemessen wird deshalb mit `scrollHeight`/`clientHeight` (Layout-Pixel,
+unabhängig von der Skalierung), der Inhalt hat `flex-shrink: 0`, und zentriert
+wird nur, wenn er ohnehin passt (`[data-overflow="false"]`). Wiederholte
+Messungen mit gleichem Ergebnis starten die Animation nicht neu.
+
 ### Ausfallverhalten
 
 Für ein unbeaufsichtigtes Display gilt: lieber ein sichtbarer Hinweis als eine
@@ -146,6 +168,22 @@ Datei im Repository war aber 0 Byte groß – Vite bettete sie als leeren
 `data:`-URI ein, der Browser verwarf sie und fiel still auf `system-ui` zurück.
 Dasselbe galt für `Bebas Neue`, das nie geladen wurde. Auf den Displays lief
 damit nie die vorgesehene Typografie.
+
+### Warum Zahlen einen eigenen Stack haben
+
+`fontFamily.tabular` (Arial → Liberation Sans → DejaVu Sans) liegt über die
+Klasse `.tabular` auf Uhr, Gebetszeiten, Countdown und Datum.
+
+`font-variant-numeric: tabular-nums` allein reicht nicht: bei `ui-sans-serif`
+bzw. `system-ui` wendet der Browser das `tnum`-Feature nicht an. Nachgemessen
+am laufenden Build unterschieden sich die Ziffernpaare `11` und `44` um 23 px –
+auf der 3840-px-Bühne rund 128 px. Die Uhr wanderte dadurch bei jedem
+Sekundenwechsel sichtbar hin und her. Arial, Liberation Sans und DejaVu Sans
+haben schon im Schriftschnitt gleich breite Ziffern (Spanne 0). Genau diese
+Schriften lagen vorher hinter dem generischen `sans-serif` der Uhr.
+
+**Wer den Stack ändert, muss das nachmessen** – nicht jede Schrift hat
+Tabellenziffern.
 
 Echte Hausschrift wieder einsetzen:
 
