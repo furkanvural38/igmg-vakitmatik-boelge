@@ -390,10 +390,14 @@ export function describeApiError(err: ApiError): string {
 }
 
 // ---------------------------------------------------------------------------
-// Wetter (unverändert, fremde API)
+// Wetter (OpenWeather, öffentlicher Client-Key)
 // ---------------------------------------------------------------------------
 
-const OPENWEATHER_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY ?? "";
+/** Freier Anzeige-Key; darf im Bundle stehen. Env überschreibt ihn nur, wenn gesetzt. */
+const DEFAULT_OPENWEATHER_API_KEY = "6847fff1ba1440395c9624c98a44f3f0";
+
+const OPENWEATHER_API_KEY =
+    (import.meta.env.VITE_OPENWEATHER_API_KEY ?? "").trim() || DEFAULT_OPENWEATHER_API_KEY;
 
 /**
  * Wetter ist Beiwerk: Fehler werden geschluckt und als `null` gemeldet, damit
@@ -407,11 +411,6 @@ export async function fetchWeather(
     cityName: string,
     signal?: AbortSignal
 ): Promise<WeatherData | null> {
-    if (!OPENWEATHER_API_KEY) {
-        console.warn("VITE_OPENWEATHER_API_KEY fehlt – Wetterkarte bleibt leer.");
-        return null;
-    }
-
     const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(
         cityName
     )}&units=metric&lang=de&appid=${OPENWEATHER_API_KEY}`;
