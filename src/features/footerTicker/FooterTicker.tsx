@@ -1,6 +1,7 @@
 // src/features/footerTicker/FooterTicker.tsx
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCity } from "../../app/cityContext";
+import { planTicker } from "./tickerTiming";
 
 import AllahImg from "../../assets/ressources/ALLAH-image.png";
 import MuhammadImg from "../../assets/ressources/Muhammad-image.png";
@@ -12,16 +13,6 @@ const IMAGES: Record<string, string> = {
     dua: DuaImg,
 };
 
-/** Lesegeschwindigkeit des Marquees. */
-const SCROLL_SPEED_PX_PER_SEC = 40;
-/** Anteil der Laufzeit, der oben bzw. unten als Lesepause stehen bleibt. */
-const HOLD_FRACTION = 0.1;
-/** Untergrenze, damit knapp ueberlaufender Text nicht vorbeihuscht. */
-const MIN_SCROLL_MS = 8_000;
-/** Anzeigedauer fuer Inhalte, die ohne Scrollen passen. */
-const STATIC_DURATION_MS = 20_000;
-/** Darunter ist der Ueberlauf nur Rundungsrauschen. */
-const OVERFLOW_THRESHOLD_PX = 4;
 /** Reserve, falls animationend ausbleibt. */
 const ANIMATION_END_GRACE_MS = 750;
 
@@ -59,6 +50,7 @@ export function FooterTicker() {
         let advanced = false;
         let advanceTimer: number | undefined;
         let appliedDistance = -1;
+        let timing: ReturnType<typeof planTicker> | null = null;
 
         const clearAdvanceTimer = () => {
             if (advanceTimer !== undefined) {
@@ -77,7 +69,8 @@ export function FooterTicker() {
         const stopScrolling = () => {
             content.classList.remove("marquee-running");
             content.style.removeProperty("--scroll-distance");
-            content.style.removeProperty("--marquee-duration");
+            content.style.removeProperty("animation-delay");
+            content.style.removeProperty("animation-duration");
         };
 
         const apply = () => {
@@ -89,28 +82,37 @@ export function FooterTicker() {
             // den Skalierungsfaktor zu klein zurueck (bei 4K auf Full-HD ein
             // Drittel) - die Animation wuerde nur einen Bruchteil der noetigen
             // Strecke fahren und den Text abgeschnitten stehen lassen.
-            const distance = Math.max(0, content.scrollHeight - viewport.clientHeight);
+            //
+            // Gemessen wird ausschliesslich der Textblock: der Atemraum sitzt am
+            // Viewport und wird hier abgezogen. Sonst zaehlt Leerraum als Inhalt,
+            // der aufgedeckt werden muss - genau daran ist ein sichtbar
+            // passendes Ayet in eine Scroll-Animation gerutscht.
+            const cs = getComputedStyle(viewport);
+            const padding = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            const usable = Math.max(0, viewport.clientHeight - padding);
+            const hidden = Math.max(0, content.scrollHeight - usable);
 
             // Ohne diese Schranke startet jeder ResizeObserver-Aufschlag die
             // Animation neu und der Text ruckt zurueck an den Anfang.
-            if (distance === appliedDistance) return;
-            appliedDistance = distance;
+            if (hidden === appliedDistance) return;
+            appliedDistance = hidden;
             clearAdvanceTimer();
 
-            if (distance <= OVERFLOW_THRESHOLD_PX) {
+            const plan = planTicker(hidden);
+            timing = plan;
+
+            if (!plan.scrolls) {
                 viewport.dataset.overflow = "false";
                 stopScrolling();
-                advanceTimer = window.setTimeout(advanceOnce, STATIC_DURATION_MS);
+                advanceTimer = window.setTimeout(advanceOnce, plan.totalMs);
                 return;
             }
 
             viewport.dataset.overflow = "true";
 
-            const travelMs = (distance / SCROLL_SPEED_PX_PER_SEC) * 1_000;
-            const durationMs = Math.max(MIN_SCROLL_MS, travelMs / (1 - 2 * HOLD_FRACTION));
-
-            content.style.setProperty("--scroll-distance", distance + "px");
-            content.style.setProperty("--marquee-duration", Math.round(durationMs) + "ms");
+            content.style.setProperty("--scroll-distance", plan.distancePx + "px");
+            content.style.animationDelay = Math.round(plan.holdTopMs) + "ms";
+            content.style.animationDuration = Math.round(plan.travelMs) + "ms";
 
             // Deterministischer Neustart: Klasse ab, Reflow erzwingen, Klasse dran.
             content.classList.remove("marquee-running");
@@ -119,14 +121,18 @@ export function FooterTicker() {
 
             // Sicherheitsnetz, falls animationend nicht kommt (unterdrueckte
             // Animationen, Tab im Hintergrund) - sonst bliebe der Ticker stehen.
-            advanceTimer = window.setTimeout(advanceOnce, durationMs + ANIMATION_END_GRACE_MS);
+            advanceTimer = window.setTimeout(advanceOnce, plan.totalMs + ANIMATION_END_GRACE_MS);
         };
 
         const onAnimationEnd = (event: AnimationEvent) => {
             // Nur der Durchlauf des Inhalts zaehlt, nicht die Einblend-Animation
             // der Fusskarte, die nach oben durchblubbert.
             if (event.target !== content) return;
-            advanceOnce();
+
+            // Nicht sofort weiterschalten: der Text steht jetzt vollstaendig
+            // aufgedeckt da und will zu Ende gelesen werden.
+            clearAdvanceTimer();
+            advanceTimer = window.setTimeout(advanceOnce, timing?.holdBottomMs ?? 0);
         };
         content.addEventListener("animationend", onAnimationEnd);
 
@@ -185,12 +191,15 @@ export function FooterTicker() {
                             ref={contentRef}
                             className="marquee-content flex w-full max-w-full flex-col gap-y-8 text-white"
                         >
-                            <div className="mt-10 text-center text-[6rem] leading-[1.2] text-white">
+                            {/* Kein dekorativer Aussenabstand: der Atemraum sitzt
+                                als padding am Viewport, sonst zaehlt er als Inhalt,
+                                der aufgedeckt werden muss. */}
+                            <div className="text-center text-[6rem] leading-[1.2] text-white">
                                 {activeItem.text}
                             </div>
 
                             {activeItem.source ? (
-                                <div className="self-end pb-10 text-right text-[5rem] leading-[1.2] text-white">
+                                <div className="self-end text-right text-[5rem] leading-[1.2] text-white">
                                     {activeItem.source}
                                 </div>
                             ) : null}

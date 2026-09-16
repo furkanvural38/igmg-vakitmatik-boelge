@@ -155,6 +155,15 @@ body {
        ohnehin passt: bei Ueberlauf schneidet justify-content:center oben und
        unten gleichzeitig ab, der Text beginnt dann optisch mitten im Satz. */
     justify-content: flex-start;
+
+    /* Atemraum gehoert an den Viewport, NICHT an den Inhalt.
+       Vorher sass er als margin-top/padding-bottom an den Textknoten und
+       zaehlte damit als "zu enthuellender Inhalt": 40 px reines Nichts haben
+       ein Ayet, das sichtbar passte, in eine Scroll-Animation gezwungen.
+       Am Viewport wird er bei der Messung sauber abgezogen - und weil der
+       Inhalt unterhalb von padding-top beginnt, bleibt er am Ende der Fahrt
+       automatisch auch unten stehen. */
+    padding-block: 1rem;
 }
 
 .marquee-viewport[data-overflow="false"] {
@@ -171,22 +180,29 @@ body {
     flex-shrink: 0;
 }
 
-/* will-change erst setzen, wenn wirklich animiert wird. */
+/* will-change erst setzen, wenn wirklich animiert wird.
+   Verzoegerung und Dauer setzt die Komponente inline:
+   - animation-delay  = Lesepause oben
+   - animation-duration = reine Fahrtzeit
+   Die Pause danach laeuft ueber einen Timer, weil erst dann weitergeschaltet
+   werden darf. Absolute Pausen statt Prozentanteilen an der Gesamtdauer -
+   sonst haette ein langer Text eine entsprechend lange Anlaufpause und ein
+   kurzer fast keine. */
 .marquee-running {
     animation-name: vertical-marquee;
-    animation-duration: var(--marquee-duration, 20s);
     animation-timing-function: linear;
     /* Genau ein Durchlauf pro Inhalt. Das Weiterschalten haengt am
        animationend-Ereignis, damit nie mitten im Text gewechselt wird. */
     animation-iteration-count: 1;
+    /* both: haelt den Anfangszustand waehrend der Verzoegerung und den
+       Endzustand danach. */
     animation-fill-mode: both;
     will-change: transform;
 }
 
-/* 10 % Pause oben und unten, damit Anfang und Ende lesbar bleiben. */
 @keyframes vertical-marquee {
-    0%,  10%  { transform: translate3d(0, 0, 0); }
-    90%, 100% { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
+    from { transform: translate3d(0, 0, 0); }
+    to   { transform: translate3d(0, calc(-1 * var(--scroll-distance, 0px)), 0); }
 }
 
 /* === Bewegung reduzieren ============================================ */

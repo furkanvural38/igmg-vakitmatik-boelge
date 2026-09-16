@@ -127,9 +127,20 @@ Farbe je nach Fensterlänge 9 bis 30 Minuten bedeutete.
 
 Âyet, Hadis und Dua wechseln sich ab; passt ein Text nicht in die Karte, wird er
 vertikal durchgescrollt. Der Takt hängt an der Lesezeit, nicht an einem festen
-Intervall: jeder Inhalt läuft **genau einen** Durchlauf (10 % Pause oben,
-Fahrt, 10 % Pause unten) und schaltet erst am `animationend` weiter. Ein
-Sicherheitstimer greift, falls das Ereignis ausbleibt.
+Intervall: jeder Inhalt läuft **genau einen** Durchlauf (Lesepause oben, Fahrt,
+Lesepause unten) und schaltet erst am `animationend` weiter. Ein Sicherheitstimer
+greift, falls das Ereignis ausbleibt.
+
+Die Zeitplanung liegt als reine Funktion in
+[`tickerTiming.ts`](src/features/footerTicker/tickerTiming.ts) und ist getestet.
+Ihre wichtigste Zusicherung:
+
+> **Ein scrollender Inhalt bekommt nie weniger Zeit als ein statischer.**
+
+Die Pausen sind absolut (5 s oben, mindestens 4 s unten), nicht prozentual an der
+Gesamtdauer. Reicht die natürliche Dauer nicht an die statische Anzeigedauer
+heran, wird die Standzeit am Ende verlängert — dort steht der vollständig
+aufgedeckte Text.
 
 Drei Fehler, die das vorher unmöglich machten:
 
@@ -139,11 +150,19 @@ Drei Fehler, die das vorher unmöglich machten:
 | Text abgeschnitten | Gemessen wurde mit `getBoundingClientRect()`, also **nach** der Bühnen-Skalierung – die Strecke fiel um den Skalierungsfaktor zu klein aus |
 | Scrollt mitten im Satz los | Der Viewport war `justify-content: center`; bei Überlauf schneidet das oben **und** unten ab, der Anfang lag schon außerhalb |
 | Sprung zurück an den Anfang | Fester 20-s-Timer und `animation-iteration-count: infinite` liefen unabhängig voneinander |
+| Text, der sichtbar passt, ruckt kurz und verschwindet nach 8 s | Dekorativer Abstand (`margin-top`, `padding-bottom`) lag **im** Inhalt und zählte als aufzudeckender Text: 40 px reines Nichts erzwangen eine Scroll-Animation |
+| Längerer Text steht kürzer als kurzer | `MIN_SCROLL_MS` (8 s) lag unter `STATIC_DURATION_MS` (20 s) — mehr Inhalt bekam weniger Lesezeit |
 
 Gemessen wird deshalb mit `scrollHeight`/`clientHeight` (Layout-Pixel,
 unabhängig von der Skalierung), der Inhalt hat `flex-shrink: 0`, und zentriert
 wird nur, wenn er ohnehin passt (`[data-overflow="false"]`). Wiederholte
 Messungen mit gleichem Ergebnis starten die Animation nicht neu.
+
+**Der Atemraum gehört an den Viewport, nicht an den Inhalt** (`padding-block`).
+Am Viewport wird er bei der Messung sauber abgezogen, und weil der Inhalt
+unterhalb von `padding-top` beginnt, bleibt er am Ende der Fahrt automatisch
+auch unten stehen. Dekorativer Abstand an den Textknoten würde dagegen wieder
+als aufzudeckender Inhalt zählen.
 
 ### Ausfallverhalten
 
