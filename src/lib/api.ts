@@ -261,6 +261,19 @@ export function todayIso(timeZone = "Europe/Berlin"): string {
     }
 }
 
+/**
+ * Sind die angezeigten Zeiten nicht mehr von heute?
+ *
+ * Maßgeblich ist die Zeitzone der Stadt: der Server antwortet für deren lokalen
+ * Tag, nicht für den des Geräts. Ohne geladene Zeiten gibt es nichts
+ * aufzufrischen — dann false, damit ein Sichtbarkeitswechsel während des ersten
+ * Ladens keinen zweiten Aufruf auslöst.
+ */
+export function isPrayerTimesOutdated(times: PrayerTimes | null): boolean {
+    if (!times) return false;
+    return times.date !== todayIso(times.timezone ?? undefined);
+}
+
 function cityUrl(citySlug: string, date?: string): string {
     const base = `${API_V1}/cities/${encodeURIComponent(citySlug)}`;
     return date ? `${base}?date=${encodeURIComponent(date)}` : base;

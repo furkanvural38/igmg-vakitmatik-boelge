@@ -5,6 +5,7 @@ import { cityConfigs, resolveCity, type CityKey } from "../lib/cities";
 import {
     ApiError,
     describeApiError,
+    isPrayerTimesOutdated,
     loadPrayerTimes,
     type PrayerTimes,
     type PrayerTimesSource,
@@ -14,6 +15,7 @@ import {
     type DailyContentResult,
 } from "../features/footerTicker/apiDailyContent";
 import { useMidnightRefresh } from "../hooks/useMidnightRefresh";
+import { useVisibilityRefresh } from "../hooks/useVisibilityRefresh";
 import { CityContext, type CityContextValue } from "./cityContext";
 
 /** Wartezeiten für erneute Versuche, wenn der Server gerade nicht liefert (502/503/Netz). */
@@ -152,6 +154,11 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
 
     // Täglich um Mitternacht neu laden – ohne Sekundentick
     useMidnightRefresh(loadData);
+
+    // Zweiter Weg für den Tageswechsel: ein schlafendes Gerät führt den Timer
+    // oben nicht aus, meldet sich beim Aufwecken aber sofort. Dann zählt nur, ob
+    // das Datum der geladenen Antwort noch das heutige der Stadt ist.
+    useVisibilityRefresh(() => isPrayerTimesOutdated(state.prayerTimes), loadData);
 
     const value = useMemo<CityContextValue>(
         () => ({
